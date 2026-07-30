@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Masuk — Admin Giva Store</title>
+  <meta name="description" content="Login ke panel admin Giva Store." />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+
+<body class="bg-cream font-sans antialiased min-h-screen" x-data="loginPage" x-init="init()">
+
+  <div class="min-h-screen flex">
+
+    <!-- ── Left: Branding panel ─────────────────────────────────────────── -->
+    <div class="hidden lg:flex lg:w-1/2 bg-sand border-r border-border flex-col items-center justify-center px-16 relative overflow-hidden">
+
+      <!-- Decorative circles -->
+      <div class="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-sage/8 border border-sage/15"></div>
+      <div class="absolute -bottom-16 -right-16 w-56 h-56 rounded-full bg-sage/6 border border-sage/10"></div>
+
+      <div class="relative z-10 max-w-sm text-center">
+        <!-- Logo mark -->
+        <div class="w-16 h-16 rounded-2xl bg-sage flex items-center justify-center mx-auto mb-8 shadow-sm">
+          <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"
+              d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+        </div>
+
+        <h1 class="text-4xl font-display font-semibold text-ink leading-tight mb-3">
+          Giva Store
+        </h1>
+        <p class="text-stone text-sm leading-relaxed">
+          Panel administrasi untuk mengelola produk, kategori, pesanan, dan operasional toko.
+        </p>
+
+        <!-- Decorative divider -->
+        <div class="mt-10 flex items-center gap-3">
+          <div class="flex-1 h-px bg-border"></div>
+          <span class="text-xs text-stone/60 tracking-widest uppercase">Admin Panel</span>
+          <div class="flex-1 h-px bg-border"></div>
+        </div>
+
+        <!-- Feature list -->
+        <ul class="mt-8 space-y-3 text-left">
+          <li class="flex items-center gap-3 text-sm text-stone">
+            <span class="w-5 h-5 rounded-full bg-sage/15 border border-sage/25 flex items-center justify-center flex-shrink-0">
+              <svg class="w-2.5 h-2.5 text-sage-deep" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+            Manajemen katalog & kategori produk
+          </li>
+          <li class="flex items-center gap-3 text-sm text-stone">
+            <span class="w-5 h-5 rounded-full bg-sage/15 border border-sage/25 flex items-center justify-center flex-shrink-0">
+              <svg class="w-2.5 h-2.5 text-sage-deep" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+            Kelola pesanan & transaksi kasir
+          </li>
+          <li class="flex items-center gap-3 text-sm text-stone">
+            <span class="w-5 h-5 rounded-full bg-sage/15 border border-sage/25 flex items-center justify-center flex-shrink-0">
+              <svg class="w-2.5 h-2.5 text-sage-deep" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+            Laporan penjualan & analitik toko
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ── Right: Login form ─────────────────────────────────────────────── -->
+    <div class="flex-1 flex items-center justify-center px-6 py-12">
+      <div class="w-full max-w-sm">
+
+        <!-- Mobile logo (hidden on lg) -->
+        <div class="flex items-center gap-3 mb-10 lg:hidden">
+          <div class="w-9 h-9 rounded-xl bg-sage flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            </svg>
+          </div>
+          <span class="text-lg font-display font-semibold text-ink">Giva Store</span>
+        </div>
+
+        <!-- Heading -->
+        <div class="mb-8">
+          <h2 class="text-2xl font-display font-semibold text-ink">Masuk ke Admin</h2>
+          <p class="text-sm text-stone mt-1">Gunakan akun staff Anda untuk melanjutkan.</p>
+        </div>
+
+        <!-- Error alert -->
+        <div
+          x-show="error"
+          x-transition:enter="transition ease-out duration-200"
+          x-transition:enter-start="opacity-0 -translate-y-1"
+          x-transition:enter-end="opacity-100 translate-y-0"
+          class="mb-5 flex items-start gap-3 px-4 py-3.5 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm"
+          style="display: none;">
+          <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span x-text="error"></span>
+        </div>
+
+        <!-- Form -->
+        <form id="form-login" @submit.prevent="handleLogin()" class="space-y-4" novalidate>
+
+          <!-- Email -->
+          <div class="space-y-1.5">
+            <label for="input-email" class="block text-sm font-medium text-ink">Email</label>
+            <input
+              id="input-email"
+              type="email"
+              x-model="email"
+              placeholder="staff@givastore.com"
+              autocomplete="email"
+              required
+              :disabled="loading"
+              class="w-full px-4 py-2.5 rounded-xl bg-white border border-border text-ink placeholder-stone text-sm
+                     focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60
+                     hover:border-stone/50 transition-all disabled:opacity-60 disabled:cursor-not-allowed" />
+          </div>
+
+          <!-- Password -->
+          <div class="space-y-1.5">
+            <label for="input-password" class="block text-sm font-medium text-ink">Password</label>
+            <div class="relative">
+              <input
+                id="input-password"
+                :type="showPassword ? 'text' : 'password'"
+                x-model="password"
+                placeholder="••••••••"
+                autocomplete="current-password"
+                required
+                :disabled="loading"
+                class="w-full px-4 py-2.5 pr-11 rounded-xl bg-white border border-border text-ink placeholder-stone text-sm
+                       focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60
+                       hover:border-stone/50 transition-all disabled:opacity-60 disabled:cursor-not-allowed" />
+              <!-- Toggle visibility -->
+              <button
+                type="button"
+                @click="showPassword = !showPassword"
+                tabindex="-1"
+                class="absolute inset-y-0 right-3 flex items-center text-stone hover:text-ink transition-colors">
+                <template x-if="!showPassword">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </template>
+                <template x-if="showPassword">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                  </svg>
+                </template>
+              </button>
+            </div>
+          </div>
+
+          <!-- Submit -->
+          <button
+            id="btn-masuk"
+            type="submit"
+            :disabled="loading || !email.trim() || !password"
+            class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
+                   bg-sage hover:bg-sage-deep text-white text-sm font-semibold
+                   transition-colors mt-2 disabled:opacity-40 disabled:cursor-not-allowed">
+            <!-- Spinner -->
+            <svg x-show="loading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            <span x-text="loading ? 'Sedang masuk...' : 'Masuk'"></span>
+          </button>
+
+        </form>
+
+        <!-- Footer note -->
+        <p class="mt-8 text-xs text-stone text-center">
+          Halaman ini hanya untuk staff Giva Store.<br />
+          Butuh bantuan? Hubungi administrator.
+        </p>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/src/admin/login.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Detail Pesanan — Giva Store</title>
+  <meta name="description" content="Detail pesanan Giva Store." />
+  <link rel="stylesheet" href="/src/style.css" />
+  <style>[x-cloak]{display:none!important}</style>
+</head>
+
+<body class="bg-cream text-ink min-h-screen font-sans antialiased" x-data="storeOrderDetail" x-init="init()" x-cloak>
+
+  <header class="sticky top-0 z-40 bg-cream/90 backdrop-blur-md border-b border-border">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <a href="/toko/index.html" class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-full bg-sage flex items-center justify-center">
+          <span class="font-display text-white text-lg font-semibold" x-text="(storeName||'G').charAt(0).toUpperCase()"></span>
+        </div>
+        <span class="font-display text-xl font-semibold" x-text="storeName"></span>
+      </a>
+      <a href="/toko/orders.html" class="text-sm font-medium text-stone hover:text-ink min-h-[44px] flex items-center">← Pesanan Saya</a>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+    <div x-show="loading" class="h-64 rounded-2xl bg-sand border border-border animate-pulse"></div>
+
+    <div x-show="!loading && notFound" class="rounded-2xl border border-dashed border-border bg-white px-6 py-16 text-center" style="display:none;">
+      <p class="font-display text-2xl mb-2">Pesanan tidak ditemukan</p>
+      <p class="text-sm text-stone mb-6">Pesanan mungkin bukan milik akun ini atau tautan tidak valid.</p>
+      <a href="/toko/orders.html" class="inline-flex min-h-[48px] px-6 items-center rounded-full bg-sage text-white text-sm font-semibold">Kembali ke Pesanan</a>
+    </div>
+
+    <div x-show="error && !notFound" class="mb-4 text-sm text-red-600" x-text="error" style="display:none;"></div>
+
+    <div x-show="!loading && order" class="space-y-6" style="display:none;">
+      <!-- Header -->
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p class="text-xs font-semibold tracking-[0.18em] uppercase text-sage-deep mb-2">Order detail</p>
+          <h1 class="font-display text-3xl font-semibold tracking-tight">
+            #<span x-text="orderNumber(order.id)"></span>
+          </h1>
+          <p class="text-sm text-stone mt-1" x-text="formatOrderDate(order.created_at)"></p>
+        </div>
+        <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-sage/15 text-sage-deep"
+          x-text="statusLabel"></span>
+      </div>
+
+      <!-- Items -->
+      <section class="rounded-2xl border border-border bg-white p-5 sm:p-6">
+        <h2 class="font-display text-xl font-semibold mb-4">Item Pesanan</h2>
+        <ul class="space-y-4">
+          <template x-for="item in order.items" :key="item.id">
+            <li class="flex gap-3 sm:gap-4">
+              <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-sand border border-border overflow-hidden flex-shrink-0">
+                <template x-if="item.image_url">
+                  <img :src="item.image_url" :alt="item.name" class="w-full h-full object-cover" />
+                </template>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold" x-text="item.name"></p>
+                <p class="text-xs text-stone mt-0.5" x-show="item.color_name" x-text="'Warna: ' + item.color_name" style="display:none;"></p>
+                <p class="text-xs text-stone mt-1"
+                  x-text="item.quantity + ' × ' + formatPrice(item.unit_price)"></p>
+              </div>
+              <p class="text-sm font-semibold whitespace-nowrap" x-text="formatPrice(item.subtotal)"></p>
+            </li>
+          </template>
+        </ul>
+        <div class="mt-5 pt-4 border-t border-border flex justify-between text-sm">
+          <span class="text-stone">Total pesanan</span>
+          <span class="text-base font-semibold" x-text="formatPrice(order.total_amount)"></span>
+        </div>
+      </section>
+
+      <!-- Shipping -->
+      <section class="rounded-2xl border border-border bg-white p-5 sm:p-6">
+        <h2 class="font-display text-xl font-semibold mb-4">Pengiriman</h2>
+        <template x-if="ship">
+          <div class="space-y-1 text-sm">
+            <p class="font-semibold" x-text="ship.recipient_name"></p>
+            <p class="text-stone" x-text="ship.recipient_phone"></p>
+            <p class="text-ink mt-2 leading-relaxed" x-text="ship.shipping_address || ship.address"></p>
+            <p class="text-stone mt-2" x-show="zoneName()" style="display:none;">
+              Zona: <span x-text="zoneName()"></span>
+            </p>
+            <p class="text-stone">
+              Ongkir:
+              <span class="font-medium text-ink"
+                x-text="shipCost() != null ? formatPrice(shipCost()) : '—'"></span>
+            </p>
+          </div>
+        </template>
+        <p x-show="!ship" class="text-sm text-stone" style="display:none;">Data pengiriman tidak tersedia.</p>
+      </section>
+
+      <!-- Payment info -->
+      <section class="rounded-2xl border border-border bg-white p-5 sm:p-6">
+        <h2 class="font-display text-xl font-semibold mb-4">Pembayaran</h2>
+        <div class="grid sm:grid-cols-2 gap-3 text-sm">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-stone font-semibold">Metode</p>
+            <p class="mt-0.5 font-medium" x-text="methodLabel(method)"></p>
+          </div>
+          <div>
+            <p class="text-xs uppercase tracking-wide text-stone font-semibold">Status</p>
+            <p class="mt-0.5 font-medium" x-text="paymentStatusLabel(pay?.status || order.payment_status)"></p>
+          </div>
+          <div>
+            <p class="text-xs uppercase tracking-wide text-stone font-semibold">Nominal</p>
+            <p class="mt-0.5 font-semibold" x-text="formatPrice(pay?.amount ?? order.total_amount)"></p>
+          </div>
+        </div>
+        <div x-show="pay?.proof_url" class="mt-4" style="display:none;">
+          <p class="text-xs uppercase tracking-wide text-stone font-semibold mb-2">Bukti terupload</p>
+          <a :href="pay.proof_url" target="_blank" rel="noopener" class="block">
+            <img :src="pay.proof_url" alt="Bukti bayar" class="max-w-xs rounded-xl border border-border" />
+          </a>
+        </div>
+      </section>
+
+      <!-- Upload proof (unpaid only) -->
+      <section x-show="canUploadProof" class="rounded-2xl border border-border bg-white p-5 sm:p-6" style="display:none;">
+        <h2 class="font-display text-xl font-semibold mb-2">Upload Bukti Pembayaran</h2>
+        <p class="text-sm text-stone mb-4">Transfer sesuai metode di bawah, lalu unggah bukti.</p>
+
+        <!-- Method-specific instructions -->
+        <div class="mb-5 rounded-xl border border-border bg-cream/50 p-4 text-sm">
+          <div x-show="method === 'transfer'" style="display:none;">
+            <p class="font-semibold mb-2">Transfer Bank</p>
+            <p x-show="transferHint" class="text-ink whitespace-pre-line" x-text="transferHint" style="display:none;"></p>
+            <div x-show="!transferHint && bankAccounts.length" class="space-y-2" style="display:none;">
+              <template x-for="b in bankAccounts" :key="b.id">
+                <div class="border-b border-border last:border-0 pb-2 last:pb-0">
+                  <p class="font-semibold" x-text="b.bank_name"></p>
+                  <p class="font-mono" x-text="b.account_number"></p>
+                  <p class="text-stone text-xs" x-text="'a/n ' + b.account_name"></p>
+                </div>
+              </template>
+            </div>
+            <p class="mt-2 font-semibold">Jumlah: <span x-text="formatPrice(order.total_amount)"></span></p>
+          </div>
+          <div x-show="method === 'qris'" style="display:none;">
+            <p class="font-semibold mb-2">QRIS</p>
+            <template x-if="qrisImageUrl">
+              <img :src="qrisImageUrl" alt="QRIS" class="max-w-[200px] mx-auto rounded-xl border border-border bg-white p-2" />
+            </template>
+            <p x-show="!qrisImageUrl" class="text-stone" style="display:none;">Gambar QRIS belum tersedia.</p>
+            <p class="mt-2 font-semibold text-center">Jumlah: <span x-text="formatPrice(order.total_amount)"></span></p>
+          </div>
+          <div x-show="['gopay','ovo','dana'].includes(method)" style="display:none;">
+            <p class="font-semibold mb-1" x-text="methodLabel(method)"></p>
+            <p class="text-lg font-mono font-semibold" x-text="ewalletNumber || '—'"></p>
+            <p class="mt-2 font-semibold">Jumlah: <span x-text="formatPrice(order.total_amount)"></span></p>
+          </div>
+          <div x-show="!method" class="text-stone" style="display:none;">Metode pembayaran tidak tercatat.</div>
+        </div>
+
+        <div x-show="uploadSuccess" class="mb-4 rounded-xl border border-sage/30 bg-sage/10 px-4 py-3 text-sm text-sage-deep" style="display:none;">
+          Bukti pembayaran berhasil diupload. Pesanan akan dikonfirmasi dalam 1×24 jam.
+        </div>
+        <div x-show="uploadError" class="mb-4 text-sm text-red-600" x-text="uploadError" style="display:none;"></div>
+
+        <div class="space-y-3">
+          <label class="block">
+            <span class="text-xs font-semibold uppercase tracking-wide text-stone">Gambar bukti</span>
+            <input type="file" accept="image/*" @change="onProofPick($event)"
+              class="mt-1.5 block w-full text-sm text-stone file:mr-3 file:min-h-[44px] file:px-4 file:rounded-full file:border-0 file:bg-sage file:text-white file:text-sm file:font-semibold hover:file:bg-sage-deep" />
+          </label>
+          <div x-show="proofPreview" class="max-w-xs" style="display:none;">
+            <img :src="proofPreview" alt="Preview" class="rounded-xl border border-border" />
+          </div>
+          <button type="button" @click="uploadProof()" :disabled="!proofFile || uploading"
+            class="w-full sm:w-auto min-h-[48px] px-6 rounded-full bg-sage hover:bg-sage-deep text-white text-sm font-semibold disabled:opacity-45 transition-colors">
+            <span x-text="uploading ? 'Mengupload…' : 'Upload Bukti Bayar'"></span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Cancel -->
+      <div x-show="canCancel" class="pt-2" style="display:none;">
+        <button type="button" @click="cancelOrder()" :disabled="cancelling"
+          class="w-full sm:w-auto min-h-[48px] px-6 rounded-full border border-red-200 bg-red-50 text-red-700 text-sm font-semibold hover:bg-red-100 disabled:opacity-50">
+          <span x-text="cancelling ? 'Membatalkan…' : 'Batalkan Pesanan'"></span>
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-border bg-sand mt-16">
+    <div class="max-w-6xl mx-auto px-4 py-8 text-xs text-stone">
+      © <span x-text="new Date().getFullYear()"></span> <span x-text="storeName"></span>
+    </div>
+  </footer>
+
+  <script type="module" src="/src/toko/order-detail.js"></script>
+</body>
+
+</html>

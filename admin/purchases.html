@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pembelian — Admin Giva Store</title>
+  <meta name="description" content="Kelola pembelian dan penerimaan barang Giva Store." />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body class="bg-cream text-ink min-h-screen font-sans antialiased" x-data="purchasesAdmin" x-init="init()">
+
+<div class="flex min-h-screen">
+
+      <div id="admin-sidebar"></div>
+
+
+  <!-- ── Main ─────────────────────────────────────────── -->
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <!-- ════════════════════════════════════════════════════
+         VIEW: LIST
+    ════════════════════════════════════════════════════ -->
+    <div x-show="view === 'list'" class="flex flex-col flex-1">
+
+      <!-- Top bar -->
+      <header class="bg-cream/80 backdrop-blur border-b border-border px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-20">
+        <div class="flex items-center gap-3 min-w-0">
+          <button id="btn-hamburger" onclick="openSidebar()"
+            class="lg:hidden w-11 h-11 -ml-1 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div class="min-w-0">
+            <h1 class="text-lg sm:text-2xl font-display font-semibold text-ink truncate">Pembelian</h1>
+            <p class="text-xs text-stone mt-0.5 hidden sm:block">Catat penerimaan barang dari supplier</p>
+          </div>
+        </div>
+        <button id="btn-tambah-pembelian" @click="openAddView()"
+          class="inline-flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg bg-sage hover:bg-sage-deep text-white text-sm font-medium transition-colors flex-shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          <span class="hidden sm:inline">Tambah Pembelian</span>
+          <span class="sm:hidden">Tambah</span>
+        </button>
+      </header>
+
+      <main class="flex-1 p-4 sm:p-8">
+
+        <!-- Alert -->
+        <div x-show="alert.show"
+          x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-1" x-transition:enter-end="opacity-100 translate-y-0"
+          x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+          :class="{'border-sage/40 bg-sage/8 text-sage-deep':alert.type==='success','border-red-300 bg-red-50 text-red-700':alert.type==='error','border-amber-300 bg-amber-50 text-amber-700':alert.type==='warning'}"
+          class="mb-6 flex items-start gap-3 px-4 py-3.5 rounded-xl border text-sm font-medium" style="display:none;">
+          <span x-text="alert.message" class="flex-1"></span>
+          <button @click="alert.show=false" class="opacity-50 hover:opacity-80 transition-opacity flex-shrink-0">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <!-- Search + filter -->
+        <div class="mb-5 flex flex-col sm:flex-row gap-3">
+          <div class="relative flex-1 max-w-sm">
+            <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input id="input-search" type="search" x-model="searchQuery" placeholder="Cari no. invoice atau supplier…"
+              class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-border text-ink placeholder-stone text-sm focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 hover:border-stone/50 transition-all"/>
+          </div>
+          <div class="flex rounded-xl border border-border bg-white overflow-hidden self-start">
+            <button @click="filterStatus='all'" :class="filterStatus==='all'?'bg-sage text-white':'text-stone hover:text-ink hover:bg-sand'" class="px-3 py-2 text-xs font-semibold transition-all">Semua <span class="ml-0.5 opacity-70" x-text="'('+purchases.length+')'"></span></button>
+            <button @click="filterStatus='draft'" :class="filterStatus==='draft'?'bg-amber-500 text-white':'text-stone hover:text-ink hover:bg-sand'" class="px-3 py-2 text-xs font-semibold transition-all border-l border-border">Draft <span class="ml-0.5 opacity-70" x-text="'('+draftCount+')'"></span></button>
+            <button @click="filterStatus='received'" :class="filterStatus==='received'?'bg-sage text-white':'text-stone hover:text-ink hover:bg-sand'" class="px-3 py-2 text-xs font-semibold transition-all border-l border-border">Diterima <span class="ml-0.5 opacity-70" x-text="'('+receivedCount+')'"></span></button>
+          </div>
+        </div>
+
+        <!-- Skeleton -->
+        <div x-show="loadingList" class="space-y-2">
+          <template x-for="i in 6" :key="i"><div class="h-14 rounded-xl bg-sand/80 animate-pulse"></div></template>
+        </div>
+
+        <!-- Empty state -->
+        <div x-show="!loadingList && purchases.length === 0" class="flex flex-col items-center justify-center py-24 text-center">
+          <div class="w-14 h-14 rounded-2xl bg-sand border border-border flex items-center justify-center mb-5">
+            <svg class="w-7 h-7 text-stone" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          </div>
+          <h2 class="text-lg font-display font-semibold text-ink mb-1">Belum ada pembelian</h2>
+          <p class="text-sm text-stone mb-6">Catat pembelian pertama dari supplier untuk mulai mengelola stok.</p>
+          <button @click="openAddView()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-sage hover:bg-sage-deep text-white text-sm font-medium transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Tambah Pembelian
+          </button>
+        </div>
+
+        <!-- Empty search result -->
+        <div x-show="!loadingList && purchases.length > 0 && filtered.length === 0" class="py-16 text-center">
+          <p class="text-sm font-medium text-ink mb-1">Tidak ada hasil</p>
+          <p class="text-xs text-stone">Coba ubah kata kunci atau filter status.</p>
+        </div>
+
+        <!-- Desktop table -->
+        <div x-show="!loadingList && filtered.length > 0" class="hidden md:block rounded-xl border border-border overflow-hidden bg-white">
+          <div class="bg-sand px-6 py-3 grid grid-cols-12 gap-3 text-[11px] font-semibold uppercase tracking-widest text-stone border-b border-border">
+            <div class="col-span-2">No. Invoice</div>
+            <div class="col-span-3">Supplier</div>
+            <div class="col-span-2">Tanggal</div>
+            <div class="col-span-2 text-right">Total</div>
+            <div class="col-span-2 text-center">Status</div>
+            <div class="col-span-1 text-right">Aksi</div>
+          </div>
+          <div class="divide-y divide-border">
+            <template x-for="pur in filtered" :key="pur.id">
+              <div class="bg-white hover:bg-cream/60 px-6 py-3.5 grid grid-cols-12 gap-3 items-center transition-colors group">
+                <div class="col-span-2 min-w-0">
+                  <span class="text-xs font-mono text-stone" x-text="pur.invoice_no || '—'"></span>
+                </div>
+                <div class="col-span-3 min-w-0">
+                  <p class="text-sm font-medium text-ink truncate" x-text="pur.supplier_name"></p>
+                  <p class="text-xs text-stone" x-text="pur.location_name"></p>
+                </div>
+                <div class="col-span-2">
+                  <span class="text-sm text-stone" x-text="formatDate(pur.purchase_date)"></span>
+                </div>
+                <div class="col-span-2 text-right">
+                  <span class="text-sm font-semibold text-ink" x-text="formatPrice(pur.total_amount)"></span>
+                </div>
+                <div class="col-span-2 flex justify-center">
+                  <span :class="statusClass(pur.status)" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border">
+                    <span class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                      :class="pur.status==='received'?'bg-sage':pur.status==='cancelled'?'bg-red-400':'bg-amber-400'"></span>
+                    <span x-text="statusLabel(pur.status)"></span>
+                  </span>
+                </div>
+                <div class="col-span-1 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button :id="'btn-detail-'+pur.id" @click="openDetailView(pur)"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sand hover:bg-border text-ink text-xs font-medium transition-colors border border-border">
+                    <svg class="w-3.5 h-3.5 text-stone" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    Detail
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+          <div class="bg-sand px-6 py-3 border-t border-border">
+            <p class="text-xs text-stone">Menampilkan <span class="font-semibold text-ink" x-text="filtered.length"></span> dari <span class="font-semibold text-ink" x-text="purchases.length"></span> pembelian</p>
+          </div>
+        </div>
+
+        <!-- Mobile cards -->
+        <div x-show="!loadingList && filtered.length > 0" class="md:hidden space-y-2">
+          <template x-for="pur in filtered" :key="pur.id">
+            <div class="bg-white border border-border rounded-xl px-4 py-3.5 flex items-start gap-3">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <p class="font-medium text-ink text-sm" x-text="pur.supplier_name"></p>
+                  <span :class="statusClass(pur.status)" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border flex-shrink-0">
+                    <span class="w-1.5 h-1.5 rounded-full" :class="pur.status==='received'?'bg-sage':pur.status==='cancelled'?'bg-red-400':'bg-amber-400'"></span>
+                    <span x-text="statusLabel(pur.status)"></span>
+                  </span>
+                </div>
+                <p class="text-xs text-stone font-mono" x-text="pur.invoice_no || 'No invoice'"></p>
+                <div class="flex items-center gap-3 mt-1.5">
+                  <span class="text-sm font-semibold text-ink" x-text="formatPrice(pur.total_amount)"></span>
+                  <span class="text-xs text-stone" x-text="formatDate(pur.purchase_date)"></span>
+                </div>
+              </div>
+              <button :id="'btn-detail-mob-'+pur.id" @click="openDetailView(pur)"
+                class="w-11 h-11 rounded-lg bg-sand hover:bg-border text-stone hover:text-ink flex items-center justify-center transition-colors border border-border flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </button>
+            </div>
+          </template>
+          <p class="text-xs text-stone text-center pt-1">Menampilkan <span class="font-semibold text-ink" x-text="filtered.length"></span> dari <span class="font-semibold text-ink" x-text="purchases.length"></span> pembelian</p>
+        </div>
+
+      </main>
+    </div><!-- end view:list -->
+
+    <!-- ════════════════════════════════════════════════════
+         VIEW: DETAIL (new + existing)
+    ════════════════════════════════════════════════════ -->
+    <div x-show="view === 'detail'" class="flex flex-col flex-1" style="display:none;">
+
+      <!-- Top bar detail -->
+      <header class="bg-cream/80 backdrop-blur border-b border-border px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-20">
+        <div class="flex items-center gap-3 min-w-0">
+          <button onclick="openSidebar()" class="lg:hidden w-11 h-11 -ml-1 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <button id="btn-back" @click="goBackToList()" class="w-9 h-9 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all flex-shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <div class="min-w-0">
+            <h1 class="text-lg sm:text-2xl font-display font-semibold text-ink leading-tight truncate"
+              x-text="detailMode==='new' ? 'Tambah Pembelian' : ('Pembelian #' + (currentPurchase?.invoice_no || currentPurchase?.id || ''))"></h1>
+            <div x-show="detailMode==='existing' && currentPurchase" class="flex items-center gap-2 mt-0.5">
+              <span :class="statusClass(currentPurchase?.status)" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border">
+                <span class="w-1.5 h-1.5 rounded-full" :class="currentPurchase?.status==='received'?'bg-sage':currentPurchase?.status==='cancelled'?'bg-red-400':'bg-amber-400'"></span>
+                <span x-text="statusLabel(currentPurchase?.status)"></span>
+              </span>
+              <span class="text-xs text-stone" x-text="currentPurchase?.supplier_name"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Terima Barang button — only on existing draft -->
+        <button
+          x-show="detailMode==='existing' && currentPurchase?.status==='draft'"
+          id="btn-terima-barang"
+          @click="receiveGoods()"
+          :disabled="receivingGoods || currentItems.length === 0"
+          class="inline-flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg bg-sage hover:bg-sage-deep text-white text-sm font-semibold transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
+          <svg x-show="receivingGoods" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+          <svg x-show="!receivingGoods" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          <span class="hidden sm:inline" x-text="receivingGoods ? 'Memproses...' : 'Terima Barang'"></span>
+          <span class="sm:hidden">Terima</span>
+        </button>
+      </header>
+
+      <main class="flex-1 p-4 sm:p-8 max-w-4xl mx-auto w-full">
+
+        <!-- Alert detail -->
+        <div x-show="alert.show"
+          x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-1" x-transition:enter-end="opacity-100 translate-y-0"
+          x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+          :class="{'border-sage/40 bg-sage/8 text-sage-deep':alert.type==='success','border-red-300 bg-red-50 text-red-700':alert.type==='error','border-amber-300 bg-amber-50 text-amber-700':alert.type==='warning'}"
+          class="mb-6 flex items-start gap-3 px-4 py-3.5 rounded-xl border text-sm font-medium" style="display:none;">
+          <span x-text="alert.message" class="flex-1"></span>
+          <button @click="alert.show=false" class="opacity-50 hover:opacity-80 transition-opacity"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+        </div>
+
+        <!-- Locked notice -->
+        <div x-show="detailMode==='existing' && isLocked"
+          class="mb-6 flex items-start gap-3 px-4 py-3.5 rounded-xl border border-sage/30 bg-sage/6 text-sage-deep text-sm">
+          <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          <p>Purchase yang sudah <strong x-text="currentPurchase?.status==='received'?'diterima':'dibatalkan'"></strong> tidak bisa diubah. Buat purchase baru jika ada kesalahan.</p>
+        </div>
+
+        <!-- ── SECTION A: HEADER FORM (mode: new) ─────────── -->
+        <div x-show="detailMode === 'new'">
+          <div class="bg-white border border-border rounded-2xl overflow-hidden mb-6">
+            <div class="px-6 py-4 border-b border-border bg-sand">
+              <h2 class="text-sm font-semibold text-ink">Informasi Pembelian</h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Supplier -->
+                <div class="space-y-1.5">
+                  <label for="select-supplier" class="block text-sm font-medium text-ink">Supplier <span class="text-red-500">*</span></label>
+                  <div class="relative">
+                    <select id="select-supplier" x-model="form.supplier_id" @change="errors.supplier_id=''"
+                      class="w-full px-4 py-2.5 rounded-xl bg-cream border text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 hover:border-stone/50 transition-all"
+                      :class="[errors.supplier_id?'border-red-400':'border-border', form.supplier_id?'text-ink':'text-stone']">
+                      <option value="" disabled>Pilih supplier…</option>
+                      <template x-for="s in suppliers" :key="s.id"><option :value="String(s.id)" x-text="s.name"></option></template>
+                    </select>
+                    <svg class="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                  </div>
+                  <p x-show="errors.supplier_id" x-text="errors.supplier_id" class="text-xs text-red-500" style="display:none;"></p>
+                </div>
+
+                <!-- Lokasi -->
+                <div class="space-y-1.5">
+                  <label for="select-lokasi" class="block text-sm font-medium text-ink">Lokasi / Gudang <span class="text-red-500">*</span></label>
+                  <div class="relative">
+                    <select id="select-lokasi" x-model="form.location_id" @change="errors.location_id=''"
+                      class="w-full px-4 py-2.5 rounded-xl bg-cream border text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 hover:border-stone/50 transition-all"
+                      :class="[errors.location_id?'border-red-400':'border-border', form.location_id?'text-ink':'text-stone']">
+                      <option value="" disabled>Pilih lokasi…</option>
+                      <template x-for="l in locations" :key="l.id"><option :value="String(l.id)" x-text="l.name"></option></template>
+                    </select>
+                    <svg class="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                  </div>
+                  <p x-show="errors.location_id" x-text="errors.location_id" class="text-xs text-red-500" style="display:none;"></p>
+                </div>
+
+                <!-- No. Invoice -->
+                <div class="space-y-1.5">
+                  <label for="input-invoice" class="block text-sm font-medium text-ink">No. Invoice <span class="text-stone text-xs font-normal">(opsional)</span></label>
+                  <input id="input-invoice" type="text" x-model="form.invoice_no" placeholder="INV/2024/001"
+                    class="w-full px-4 py-2.5 rounded-xl bg-cream border border-border text-ink placeholder-stone text-sm focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 hover:border-stone/50 transition-all"/>
+                </div>
+
+                <!-- Tanggal -->
+                <div class="space-y-1.5">
+                  <label for="input-date" class="block text-sm font-medium text-ink">Tanggal Pembelian <span class="text-red-500">*</span></label>
+                  <input id="input-date" type="date" x-model="form.purchase_date" @change="errors.purchase_date=''"
+                    class="w-full px-4 py-2.5 rounded-xl bg-cream border text-ink text-sm focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 hover:border-stone/50 transition-all"
+                    :class="errors.purchase_date?'border-red-400':'border-border'"/>
+                  <p x-show="errors.purchase_date" x-text="errors.purchase_date" class="text-xs text-red-500" style="display:none;"></p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Items section for new purchase -->
+          <div class="bg-white border border-border rounded-2xl overflow-hidden mb-6">
+            <div class="px-6 py-4 border-b border-border bg-sand flex items-center justify-between">
+              <div>
+                <h2 class="text-sm font-semibold text-ink">Item Pembelian</h2>
+                <p class="text-xs text-stone mt-0.5">Subtotal = preview frontend; total akhir dihitung otomatis oleh database</p>
+              </div>
+              <span x-show="form.items.length > 0" class="text-xs font-semibold text-sage-deep bg-sage/10 border border-sage/25 px-2 py-0.5 rounded-full" x-text="form.items.length + ' item'"></span>
+            </div>
+
+            <!-- Add item row -->
+            <div class="px-6 py-4 border-b border-border bg-cream/40">
+              <p class="text-xs font-semibold text-stone uppercase tracking-wider mb-3">Tambah Item</p>
+              <div class="grid grid-cols-12 gap-3 items-start">
+                <!-- Product & Variant -->
+                <div class="col-span-12 sm:col-span-5 flex flex-col gap-2">
+                  <div class="relative">
+                    <select x-model="newItem.product_id" @change="onNewItemProductSelect()"
+                      class="w-full px-4 py-2.5 rounded-xl bg-white border text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition-all"
+                      :class="[errors.newItem.product_id?'border-red-400':'border-border', newItem.product_id?'text-ink':'text-stone']">
+                      <option value="" disabled>Pilih produk…</option>
+                      <template x-for="p in products" :key="p.id"><option :value="String(p.id)" x-text="p.sku + ' — ' + p.name"></option></template>
+                    </select>
+                    <svg class="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                  </div>
+                  <p x-show="errors.newItem.product_id" x-text="errors.newItem.product_id" class="text-xs text-red-500" style="display:none;"></p>
+
+                  <div x-show="activeProductVariants.length > 0" style="display:none;">
+                    <div class="relative">
+                      <select x-model="newItem.variant_id"
+                        class="w-full px-4 py-2.5 rounded-xl bg-white border text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition-all"
+                        :class="[errors.newItem.variant_id?'border-red-400':'border-border', newItem.variant_id?'text-ink':'text-stone']">
+                        <option value="" disabled>Pilih warna…</option>
+                        <template x-for="v in activeProductVariants" :key="v.id">
+                          <option :value="String(v.id)" x-text="v.colors?.name || 'Unknown'"></option>
+                        </template>
+                      </select>
+                      <svg class="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </div>
+                    <p x-show="errors.newItem.variant_id" x-text="errors.newItem.variant_id" class="text-xs text-red-500" style="display:none;"></p>
+                  </div>
+                </div>
+                <!-- Qty -->
+                <div class="col-span-4 sm:col-span-2 space-y-1">
+                  <input type="number" x-model="newItem.quantity" min="1" placeholder="Qty"
+                    class="w-full px-3 py-2.5 rounded-xl bg-white border border-border text-ink placeholder-stone text-sm focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition-all"
+                    :class="errors.newItem.quantity?'border-red-400':''"/>
+                  <p x-show="errors.newItem.quantity" x-text="errors.newItem.quantity" class="text-xs text-red-500" style="display:none;"></p>
+                </div>
+                <!-- Unit cost -->
+                <div class="col-span-5 sm:col-span-3 space-y-1">
+                  <input type="number" x-model="newItem.unit_cost" min="0" placeholder="Harga beli"
+                    class="w-full px-3 py-2.5 rounded-xl bg-white border border-border text-ink placeholder-stone text-sm focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition-all"
+                    :class="errors.newItem.unit_cost?'border-red-400':''"/>
+                  <p x-show="errors.newItem.unit_cost" x-text="errors.newItem.unit_cost" class="text-xs text-red-500" style="display:none;"></p>
+                </div>
+                <!-- Subtotal preview + add button -->
+                <div class="col-span-12 sm:col-span-2 flex items-center gap-2">
+                  <span class="text-xs text-stone flex-1 sm:text-right" x-text="newItemSubtotal > 0 ? formatPrice(newItemSubtotal) : ''"></span>
+                  <button type="button" @click="addFormItem()"
+                    class="w-9 h-9 rounded-lg bg-sage hover:bg-sage-deep text-white flex items-center justify-center transition-colors flex-shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Items list (preview) -->
+            <div x-show="form.items.length === 0" class="px-6 py-8 text-center">
+              <p class="text-sm text-stone">Belum ada item. Tambahkan produk di atas.</p>
+              <p x-show="errors.items" x-text="errors.items" class="text-xs text-red-500 mt-1" style="display:none;"></p>
+            </div>
+            <div x-show="form.items.length > 0">
+              <div class="hidden sm:grid grid-cols-12 gap-3 px-6 py-2 text-[10px] font-semibold uppercase tracking-widest text-stone bg-sand/60 border-t border-border">
+                <div class="col-span-4">Produk</div><div class="col-span-1 text-right">Qty</div><div class="col-span-3 text-right">Harga Beli</div><div class="col-span-3 text-right">Subtotal</div><div class="col-span-1"></div>
+              </div>
+              <div class="divide-y divide-border">
+                <template x-for="(item, idx) in form.items" :key="idx">
+                  <div class="px-6 py-3 grid grid-cols-12 gap-3 items-center">
+                    <div class="col-span-10 sm:col-span-4 min-w-0">
+                      <p class="text-sm font-medium text-ink truncate" x-text="item.product_name"></p>
+                      <template x-if="item.color_name">
+                        <div class="flex items-center gap-1.5 mt-0.5">
+                          <div class="w-2.5 h-2.5 rounded-full ring-1 ring-black/10 flex-shrink-0" :style="'background-color: ' + (item.color_hex || '#e5e7eb')"></div>
+                          <p class="text-xs text-stone" x-text="item.color_name"></p>
+                        </div>
+                      </template>
+                      <p class="text-xs text-stone mt-0.5" x-text="item.product_sku + (item.product_unit ? ' · ' + item.product_unit : '')" x-show="!item.color_name"></p>
+                    </div>
+                    <div class="col-span-2 sm:col-span-1 text-right">
+                      <span class="text-sm text-ink" x-text="item.quantity"></span>
+                    </div>
+                    <div class="hidden sm:block sm:col-span-3 text-right">
+                      <span class="text-sm text-ink whitespace-nowrap" x-text="formatPrice(item.unit_cost)"></span>
+                    </div>
+                    <div class="hidden sm:block sm:col-span-3 text-right">
+                      <span class="text-sm font-semibold text-ink whitespace-nowrap" x-text="formatPrice(item.quantity * item.unit_cost)"></span>
+                    </div>
+                    <div class="col-span-2 sm:col-span-1 flex justify-end">
+                      <button @click="removeFormItem(idx)" class="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-600 flex items-center justify-center transition-colors border border-red-100">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+              <div class="px-6 py-3 border-t border-border bg-sand/60 flex items-center justify-between">
+                <p x-show="errors.items" x-text="errors.items" class="text-xs text-red-500" style="display:none;"></p>
+                <p class="text-xs text-stone ml-auto">Preview total: <span class="font-semibold text-ink ml-1" x-text="formatPrice(previewTotal)"></span> <span class="text-stone">(final dihitung DB)</span></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Save button -->
+          <div class="flex items-center justify-end gap-3">
+            <button type="button" @click="goBackToList()" class="px-4 py-2.5 rounded-lg bg-sand hover:bg-border text-ink text-sm font-medium transition-colors border border-border">Batal</button>
+            <button id="btn-simpan-pembelian" type="button" @click="savePurchase()"
+              :disabled="savingPurchase"
+              class="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-sage hover:bg-sage-deep text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              <svg x-show="savingPurchase" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+              <span x-text="savingPurchase ? 'Menyimpan...' : 'Simpan sebagai Draft'"></span>
+            </button>
+          </div>
+        </div><!-- end mode: new -->
+
+        <!-- ── SECTION B: EXISTING PURCHASE DETAIL ──────────── -->
+        <div x-show="detailMode === 'existing'" style="display:none;">
+
+          <!-- Header info cards -->
+          <div x-show="currentPurchase" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div class="bg-white border border-border rounded-xl px-4 py-3.5">
+              <p class="text-xs text-stone mb-1">Supplier</p>
+              <p class="text-sm font-semibold text-ink" x-text="currentPurchase?.supplier_name || '—'"></p>
+            </div>
+            <div class="bg-white border border-border rounded-xl px-4 py-3.5">
+              <p class="text-xs text-stone mb-1">Lokasi</p>
+              <p class="text-sm font-semibold text-ink" x-text="currentPurchase?.location_name || '—'"></p>
+            </div>
+            <div class="bg-white border border-border rounded-xl px-4 py-3.5">
+              <p class="text-xs text-stone mb-1">Tanggal</p>
+              <p class="text-sm font-semibold text-ink" x-text="formatDate(currentPurchase?.purchase_date)"></p>
+            </div>
+            <div class="bg-white border border-border rounded-xl px-4 py-3.5">
+              <p class="text-xs text-stone mb-1">Total (dari DB)</p>
+              <p class="text-sm font-semibold text-ink" x-text="formatPrice(currentPurchase?.total_amount)"></p>
+            </div>
+          </div>
+
+          <!-- Items table / skeleton -->
+          <div class="bg-white border border-border rounded-2xl overflow-hidden mb-6">
+            <div class="px-6 py-4 border-b border-border bg-sand flex items-center justify-between">
+              <h2 class="text-sm font-semibold text-ink">Item Pembelian</h2>
+              <span x-show="!loadingDetail" class="text-xs font-semibold text-sage-deep bg-sage/10 border border-sage/25 px-2 py-0.5 rounded-full" x-text="currentItems.length + ' item'"></span>
+            </div>
+
+            <!-- Loading -->
+            <div x-show="loadingDetail" class="px-6 py-4 space-y-2">
+              <template x-for="i in 3" :key="i"><div class="h-10 rounded-lg bg-sand/80 animate-pulse"></div></template>
+            </div>
+
+            <!-- Table header (desktop) -->
+            <div x-show="!loadingDetail && currentItems.length > 0" class="hidden sm:grid grid-cols-12 gap-3 px-6 py-2 text-[10px] font-semibold uppercase tracking-widest text-stone border-b border-border">
+              <div class="col-span-4">Produk</div><div class="col-span-1 text-right">Qty</div><div class="col-span-3 text-right">Harga Beli</div><div class="col-span-3 text-right">Subtotal</div><div class="col-span-1"></div>
+            </div>
+
+            <div x-show="!loadingDetail && currentItems.length > 0" class="divide-y divide-border">
+              <template x-for="item in currentItems" :key="item.id">
+                <div class="px-6 py-3 grid grid-cols-12 gap-3 items-center"
+                  :class="removingItemId === item.id ? 'opacity-40' : ''">
+                  <div class="col-span-10 sm:col-span-4 min-w-0">
+                    <p class="text-sm font-medium text-ink truncate" x-text="item.products?.name || '—'"></p>
+                    <template x-if="item.colors?.name">
+                      <div class="flex items-center gap-1.5 mt-0.5">
+                        <div class="w-2.5 h-2.5 rounded-full ring-1 ring-black/10 flex-shrink-0" :style="'background-color: ' + (item.colors?.hex_code || '#e5e7eb')"></div>
+                        <p class="text-xs text-stone" x-text="item.colors?.name"></p>
+                      </div>
+                    </template>
+                    <p class="text-xs text-stone mt-0.5" x-text="(item.products?.sku || '') + (item.products?.unit ? ' · ' + item.products.unit : '')" x-show="!item.colors?.name"></p>
+                  </div>
+                  <div class="col-span-2 sm:col-span-1 text-right"><span class="text-sm text-ink" x-text="item.quantity"></span></div>
+                  <div class="hidden sm:block sm:col-span-3 text-right"><span class="text-sm text-stone whitespace-nowrap" x-text="formatPrice(item.unit_cost)"></span></div>
+                  <div class="hidden sm:block sm:col-span-3 text-right"><span class="text-sm font-semibold text-ink whitespace-nowrap" x-text="formatPrice(item.subtotal)"></span></div>
+                  <div class="col-span-2 sm:col-span-1 flex justify-end">
+                    <button x-show="!isLocked" @click="removeItem(item.id)"
+                      :disabled="removingItemId !== null"
+                      class="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-600 flex items-center justify-center transition-colors border border-red-100 disabled:opacity-30">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- Empty items -->
+            <div x-show="!loadingDetail && currentItems.length === 0" class="px-6 py-8 text-center">
+              <p class="text-sm text-stone">Belum ada item dalam pembelian ini.</p>
+            </div>
+
+            <!-- Add item row (only if draft) -->
+            <div x-show="!isLocked && !loadingDetail" class="px-6 py-4 border-t border-border bg-cream/40">
+              <p class="text-xs font-semibold text-stone uppercase tracking-wider mb-3">Tambah Item</p>
+              <div class="grid grid-cols-12 gap-3 items-start">
+                <div class="col-span-12 sm:col-span-5 flex flex-col gap-2">
+                  <div class="relative">
+                    <select x-model="newItem.product_id" @change="onNewItemProductSelect()"
+                      class="w-full px-4 py-2.5 rounded-xl bg-white border text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition-all"
+                      :class="[errors.newItem.product_id?'border-red-400':'border-border', newItem.product_id?'text-ink':'text-stone']">
+                      <option value="" disabled>Pilih produk…</option>
+                      <template x-for="p in products" :key="p.id"><option :value="String(p.id)" x-text="p.sku + ' — ' + p.name"></option></template>
+                    </select>
+                    <svg class="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                  </div>
+                  <p x-show="errors.newItem.product_id" x-text="errors.newItem.product_id" class="text-xs text-red-500" style="display:none;"></p>
+
+                  <div x-show="activeProductVariants.length > 0" style="display:none;">
+                    <div class="relative">
+                      <select x-model="newItem.variant_id"
+                        class="w-full px-4 py-2.5 rounded-xl bg-white border text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition-all"
+                        :class="[errors.newItem.variant_id?'border-red-400':'border-border', newItem.variant_id?'text-ink':'text-stone']">
+                        <option value="" disabled>Pilih warna…</option>
+                        <template x-for="v in activeProductVariants" :key="v.id">
+                          <option :value="String(v.id)" x-text="v.colors?.name || 'Unknown'"></option>
+                        </template>
+                      </select>
+                      <svg class="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </div>
+                    <p x-show="errors.newItem.variant_id" x-text="errors.newItem.variant_id" class="text-xs text-red-500" style="display:none;"></p>
+                  </div>
+                </div>
+                <div class="col-span-4 sm:col-span-2 space-y-1">
+                  <input type="number" x-model="newItem.quantity" min="1" placeholder="Qty"
+                    class="w-full px-3 py-2.5 rounded-xl bg-white border border-border text-ink placeholder-stone text-sm focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition-all"
+                    :class="errors.newItem.quantity?'border-red-400':''"/>
+                  <p x-show="errors.newItem.quantity" x-text="errors.newItem.quantity" class="text-xs text-red-500" style="display:none;"></p>
+                </div>
+                <div class="col-span-5 sm:col-span-3 space-y-1">
+                  <input type="number" x-model="newItem.unit_cost" min="0" placeholder="Harga beli"
+                    class="w-full px-3 py-2.5 rounded-xl bg-white border border-border text-ink placeholder-stone text-sm focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition-all"
+                    :class="errors.newItem.unit_cost?'border-red-400':''"/>
+                  <p x-show="errors.newItem.unit_cost" x-text="errors.newItem.unit_cost" class="text-xs text-red-500" style="display:none;"></p>
+                </div>
+                <div class="col-span-12 sm:col-span-2 flex items-center gap-2 justify-end">
+                  <span class="text-xs text-stone flex-1 text-right" x-text="newItemSubtotal > 0 ? formatPrice(newItemSubtotal) : ''"></span>
+                  <button type="button" @click="addItemToExisting()" :disabled="addingItem"
+                    class="w-9 h-9 rounded-lg bg-sage hover:bg-sage-deep text-white flex items-center justify-center transition-colors disabled:opacity-40 flex-shrink-0">
+                    <svg x-show="!addingItem" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    <svg x-show="addingItem" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer total -->
+            <div x-show="!loadingDetail" class="px-6 py-3 border-t border-border bg-sand/60 flex items-center justify-end gap-2">
+              <p class="text-xs text-stone">Total (dihitung DB):</p>
+              <p class="text-sm font-bold text-ink" x-text="formatPrice(currentPurchase?.total_amount)"></p>
+            </div>
+          </div>
+
+        </div><!-- end mode: existing -->
+
+      </main>
+    </div><!-- end view:detail -->
+
+  </div><!-- end main -->
+</div><!-- end flex min-h-screen -->
+
+<script type="module" src="/src/admin/purchases.js"></script>
+</body>
+</html>

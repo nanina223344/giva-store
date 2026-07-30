@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kategori Produk — Admin Giva Store</title>
+  <meta name="description" content="Kelola semua kategori dan sub-kategori produk Giva Store." />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+
+<body
+  class="bg-cream text-ink min-h-screen font-sans antialiased"
+  x-data="categoriesAdmin"
+  x-init="init()">
+
+  <!-- ══════════════════════════════════════════════════════════
+       LAYOUT
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="flex min-h-screen">
+
+        <div id="admin-sidebar"></div>
+
+
+    <!-- ── Main ───────────────────────────────────────────── -->
+    <div class="flex-1 flex flex-col min-w-0">
+
+      <!-- Top bar -->
+      <header class="bg-cream/80 backdrop-blur border-b border-border px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-20">
+        <!-- Hamburger + title -->
+        <div class="flex items-center gap-3 min-w-0">
+          <!-- Hamburger (mobile only) -->
+          <button
+            id="btn-hamburger"
+            onclick="openSidebar()"
+            class="lg:hidden w-11 h-11 -ml-1 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div class="min-w-0">
+            <h1 class="text-lg sm:text-2xl font-display font-semibold text-ink leading-tight truncate">Kategori Produk</h1>
+            <p class="text-xs text-stone mt-0.5 hidden sm:block">Kelola semua kategori dan sub-kategori produk</p>
+          </div>
+        </div>
+        <button
+          id="btn-tambah-kategori"
+          @click="openAddModal()"
+          class="inline-flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg bg-sage hover:bg-sage-deep text-white text-sm font-medium transition-colors flex-shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          <span class="hidden sm:inline">Tambah Kategori</span>
+          <span class="sm:hidden">Tambah</span>
+        </button>
+      </header>
+
+      <!-- Content -->
+      <main class="flex-1 p-4 sm:p-8">
+
+        <!-- ── Alert Toast ──────────────────────────────────────── -->
+        <div
+          x-show="alert.show"
+          x-transition:enter="transition ease-out duration-300"
+          x-transition:enter-start="opacity-0 -translate-y-1"
+          x-transition:enter-end="opacity-100 translate-y-0"
+          x-transition:leave="transition ease-in duration-200"
+          x-transition:leave-start="opacity-100"
+          x-transition:leave-end="opacity-0"
+          :class="{
+            'border-sage/40 bg-sage/8 text-sage-deep': alert.type === 'success',
+            'border-red-300 bg-red-50 text-red-700': alert.type === 'error',
+            'border-amber-300 bg-amber-50 text-amber-700': alert.type === 'warning',
+          }"
+          class="mb-6 flex items-start gap-3 px-4 py-3.5 rounded-xl border text-sm font-medium"
+          style="display: none;">
+
+          <template x-if="alert.type === 'success'">
+            <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </template>
+          <template x-if="alert.type === 'error'">
+            <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </template>
+          <template x-if="alert.type === 'warning'">
+            <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </template>
+
+          <span x-text="alert.message" class="flex-1"></span>
+          <button @click="alert.show = false" class="flex-shrink-0 opacity-50 hover:opacity-80 transition-opacity">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- ── Loading Skeleton ─────────────────────────────────── -->
+        <div x-show="loading" class="space-y-2">
+          <template x-for="i in 6" :key="i">
+            <div class="h-14 rounded-xl bg-sand/80 animate-pulse"></div>
+          </template>
+        </div>
+
+        <!-- ── Empty State ──────────────────────────────────────── -->
+        <div
+          x-show="!loading && categories.length === 0"
+          class="flex flex-col items-center justify-center py-24 text-center">
+          <div class="w-14 h-14 rounded-2xl bg-sand border border-border flex items-center justify-center mb-5">
+            <svg class="w-7 h-7 text-stone" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+          </div>
+          <h2 class="text-lg font-display font-semibold text-ink mb-1">Belum ada kategori</h2>
+          <p class="text-sm text-stone mb-6">Mulai dengan menambahkan kategori produk pertama Anda.</p>
+          <button @click="openAddModal()"
+            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-sage hover:bg-sage-deep text-white text-sm font-medium transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Tambah Kategori
+          </button>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════
+             DESKTOP TABLE (md and up)
+        ══════════════════════════════════════════════════════ -->
+        <div x-show="!loading && categories.length > 0"
+          class="hidden md:block rounded-xl border border-border overflow-hidden bg-white">
+
+          <!-- Table header -->
+          <div class="bg-sand px-6 py-3 grid grid-cols-12 gap-4 text-[11px] font-semibold uppercase tracking-widest text-stone border-b border-border">
+            <div class="col-span-5">Nama Kategori</div>
+            <div class="col-span-3">Parent</div>
+            <div class="col-span-2 text-center">Produk</div>
+            <div class="col-span-2 text-right">Aksi</div>
+          </div>
+
+          <!-- Rows -->
+          <div class="divide-y divide-border">
+            <template x-for="cat in categories" :key="cat.id">
+              <div class="bg-white hover:bg-cream/60 px-6 py-4 grid grid-cols-12 gap-4 items-center transition-colors group">
+
+                <!-- Name -->
+                <div class="col-span-5 flex items-center gap-3 min-w-0">
+                  <div class="w-7 h-7 rounded-lg bg-sage/10 border border-sage/20 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-3 h-3 text-sage-deep" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                  </div>
+                  <span class="font-medium text-ink text-sm truncate" x-text="cat.name"></span>
+                </div>
+
+                <!-- Parent — sage pill -->
+                <div class="col-span-3">
+                  <template x-if="cat.parent_category_id">
+                    <span
+                      class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sage/10 text-sage-deep border border-sage/20"
+                      x-text="getParentName(cat.parent_category_id)">
+                    </span>
+                  </template>
+                  <template x-if="!cat.parent_category_id">
+                    <span class="text-stone text-sm">—</span>
+                  </template>
+                </div>
+
+                <!-- Product count -->
+                <div class="col-span-2 text-center">
+                  <span
+                    :class="cat.product_count > 0
+                      ? 'bg-sage/10 text-sage-deep border-sage/20'
+                      : 'bg-sand text-stone border-border'"
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border tabular-nums"
+                    x-text="cat.product_count">
+                  </span>
+                </div>
+
+                <!-- Actions -->
+                <div class="col-span-2 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    :id="'btn-edit-' + cat.id"
+                    @click="openEditModal(cat)"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sand hover:bg-border text-ink text-xs font-medium transition-colors border border-border">
+                    <svg class="w-3.5 h-3.5 text-stone" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </button>
+                  <button
+                    :id="'btn-delete-' + cat.id"
+                    @click="promptDelete(cat)"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium transition-colors border border-red-200">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Hapus
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- Footer -->
+          <div class="bg-sand px-6 py-3 border-t border-border">
+            <p class="text-xs text-stone">
+              Total <span class="font-semibold text-ink" x-text="categories.length"></span> kategori
+            </p>
+          </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════
+             MOBILE CARD LIST (below md)
+        ══════════════════════════════════════════════════════ -->
+        <div x-show="!loading && categories.length > 0"
+          class="md:hidden space-y-2">
+
+          <template x-for="cat in categories" :key="cat.id">
+            <div class="bg-white border border-border rounded-xl px-4 py-3.5 flex items-center gap-3">
+
+              <!-- Icon -->
+              <div class="w-9 h-9 rounded-lg bg-sage/10 border border-sage/20 flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 text-sage-deep" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+              </div>
+
+              <!-- Info -->
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-ink text-sm truncate" x-text="cat.name"></p>
+                <div class="flex items-center gap-2 mt-1 flex-wrap">
+                  <!-- Parent badge -->
+                  <template x-if="cat.parent_category_id">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sage/10 text-sage-deep border border-sage/20"
+                      x-text="getParentName(cat.parent_category_id)">
+                    </span>
+                  </template>
+                  <!-- Product count -->
+                  <span
+                    :class="cat.product_count > 0 ? 'bg-sage/10 text-sage-deep border-sage/20' : 'bg-sand text-stone border-border'"
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border tabular-nums">
+                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" />
+                    </svg>
+                    <span x-text="cat.product_count + ' produk'"></span>
+                  </span>
+                </div>
+              </div>
+
+              <!-- Actions (always visible on mobile — no hover) -->
+              <div class="flex items-center gap-1.5 flex-shrink-0">
+                <button
+                  :id="'btn-edit-mob-' + cat.id"
+                  @click="openEditModal(cat)"
+                  class="w-11 h-11 rounded-lg bg-sand hover:bg-border text-stone hover:text-ink flex items-center justify-center transition-colors border border-border">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                <button
+                  :id="'btn-delete-mob-' + cat.id"
+                  @click="promptDelete(cat)"
+                  class="w-11 h-11 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors border border-red-200">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+
+            </div>
+          </template>
+
+          <!-- Mobile footer count -->
+          <p class="text-xs text-stone text-center pt-1">
+            Total <span class="font-semibold text-ink" x-text="categories.length"></span> kategori
+          </p>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MODAL: TAMBAH / EDIT
+       - Mobile: full-screen slide-up sheet
+       - Desktop (sm+): centered card
+  ═══════════════════════════════════════════════════════════ -->
+  <div
+    x-show="showModal"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    @keydown.escape.window="closeModal()"
+    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+    style="display: none;">
+
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-ink/20 backdrop-blur-sm" @click="closeModal()"></div>
+
+    <!-- Panel — full-width bottom sheet on mobile, centered card on sm+ -->
+    <div
+      x-show="showModal"
+      x-transition:enter="transition ease-out duration-250"
+      x-transition:enter-start="opacity-0 translate-y-4 sm:scale-95 sm:translate-y-0"
+      x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave="transition ease-in duration-150"
+      x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave-end="opacity-0 translate-y-4 sm:scale-95 sm:translate-y-0"
+      class="relative w-full sm:max-w-md bg-white sm:border border-t sm:border-border sm:rounded-2xl shadow-lg overflow-hidden
+             rounded-t-2xl max-h-[92dvh] flex flex-col">
+
+      <!-- Header -->
+      <div class="px-5 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-border flex items-center justify-between flex-shrink-0">
+        <!-- Drag handle (mobile visual hint) -->
+        <div class="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-border sm:hidden"></div>
+        <div class="mt-2 sm:mt-0">
+          <h2 class="text-base sm:text-lg font-display font-semibold text-ink"
+            x-text="isEditing ? 'Edit Kategori' : 'Tambah Kategori'"></h2>
+          <p class="text-xs text-stone mt-0.5"
+            x-text="isEditing ? 'Ubah detail kategori yang ada.' : 'Buat kategori baru untuk produk.'"></p>
+        </div>
+        <button
+          id="btn-close-modal"
+          @click="closeModal()"
+          class="w-10 h-10 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all flex-shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Body — scrollable on mobile if content overflows -->
+      <form id="form-kategori" @submit.prevent="saveCategory()" class="px-5 sm:px-6 py-5 space-y-5 overflow-y-auto flex-1">
+
+        <!-- Nama -->
+        <div class="space-y-1.5">
+          <label for="input-nama-kategori" class="block text-sm font-medium text-ink">
+            Nama Kategori <span class="text-red-500">*</span>
+          </label>
+          <input
+            id="input-nama-kategori"
+            type="text"
+            x-model="form.name"
+            placeholder="Contoh: Pakaian Wanita"
+            required
+            autocomplete="off"
+            class="w-full px-4 py-2.5 rounded-xl bg-cream border border-border text-ink placeholder-stone text-sm
+                   focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60
+                   hover:border-stone/50 transition-all" />
+          <p class="text-xs text-stone">Wajib diisi. Tidak boleh sama dengan kategori lain.</p>
+        </div>
+
+        <!-- Parent -->
+        <div class="space-y-1.5">
+          <label for="select-parent-kategori" class="block text-sm font-medium text-ink">
+            Parent Kategori
+            <span class="text-stone text-xs font-normal ml-1">(opsional)</span>
+          </label>
+          <div class="relative">
+            <select
+              id="select-parent-kategori"
+              x-model="form.parent_category_id"
+              class="w-full px-4 py-2.5 pr-10 rounded-xl bg-cream border border-border text-sm text-ink
+                     focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60
+                     hover:border-stone/50 transition-all appearance-none cursor-pointer">
+              <option value="">— Tanpa parent (kategori utama) —</option>
+              <template x-for="opt in parentOptions" :key="opt.id">
+                <option :value="opt.id" x-text="opt.name"></option>
+              </template>
+            </select>
+            <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+              <svg class="w-4 h-4 text-stone" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+          <p class="text-xs text-stone">Pilih kategori induk jika ini adalah sub-kategori.</p>
+        </div>
+
+      </form>
+
+      <!-- Footer — sticky at bottom of sheet -->
+      <div class="px-5 sm:px-6 py-4 border-t border-border flex items-center justify-end gap-3 flex-shrink-0 bg-white">
+        <button
+          id="btn-batal"
+          type="button"
+          @click="closeModal()"
+          :disabled="saving"
+          class="px-4 py-2 rounded-lg bg-sand hover:bg-border text-ink text-sm font-medium transition-colors border border-border disabled:opacity-50">
+          Batal
+        </button>
+        <button
+          id="btn-simpan"
+          type="submit"
+          form="form-kategori"
+          :disabled="saving || !form.name.trim()"
+          class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-sage hover:bg-sage-deep text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+          <svg x-show="saving" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          <span x-text="saving ? 'Menyimpan...' : (isEditing ? 'Simpan Perubahan' : 'Tambah Kategori')"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MODAL: KONFIRMASI HAPUS
+  ═══════════════════════════════════════════════════════════ -->
+  <div
+    x-show="confirmDelete.show"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    @keydown.escape.window="cancelDelete()"
+    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+    style="display: none;">
+
+    <div class="absolute inset-0 bg-ink/20 backdrop-blur-sm" @click="cancelDelete()"></div>
+
+    <div
+      x-show="confirmDelete.show"
+      x-transition:enter="transition ease-out duration-200"
+      x-transition:enter-start="opacity-0 translate-y-4 sm:scale-95 sm:translate-y-0"
+      x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave="transition ease-in duration-150"
+      x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave-end="opacity-0 translate-y-4 sm:scale-95 sm:translate-y-0"
+      class="relative w-full sm:max-w-sm bg-white sm:border border-t sm:border-border sm:rounded-2xl shadow-lg p-6 rounded-t-2xl">
+
+      <!-- Drag handle -->
+      <div class="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-border sm:hidden"></div>
+
+      <div class="flex items-center justify-center w-11 h-11 rounded-2xl bg-red-50 border border-red-200 mx-auto mb-4 mt-3 sm:mt-0">
+        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+      </div>
+
+      <h3 class="text-base font-display font-semibold text-ink text-center mb-1">Hapus Kategori?</h3>
+      <p class="text-sm text-stone text-center mb-6">
+        Kategori
+        <span class="font-semibold text-ink"
+          x-text="'&quot;' + (confirmDelete.category?.name ?? '') + '&quot;'"></span>
+        akan dihapus permanen dan tidak dapat dikembalikan.
+      </p>
+
+      <div class="flex gap-3">
+        <button
+          id="btn-batal-hapus"
+          type="button"
+          @click="cancelDelete()"
+          :disabled="deleting"
+          class="flex-1 px-4 py-2.5 rounded-xl bg-sand hover:bg-border text-ink text-sm font-medium transition-colors border border-border disabled:opacity-50">
+          Batal
+        </button>
+        <button
+          id="btn-konfirmasi-hapus"
+          type="button"
+          @click="deleteCategory()"
+          :disabled="deleting"
+          class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          <svg x-show="deleting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          <span x-text="deleting ? 'Menghapus...' : 'Ya, Hapus'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/admin/categories.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tentang Kami — Giva Store</title>
+  <meta name="description" content="Pelajari cerita, nilai, dan filosofi kurasi kualitas terbaik produk di Giva Store." />
+  <link rel="stylesheet" href="/src/style.css" />
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+
+<body class="bg-cream text-ink min-h-screen font-sans antialiased flex flex-col" x-data="storeAbout" x-init="init()" x-cloak>
+  
+  <div id="navbar-container"></div>
+
+  <!-- Loading State -->
+  <div x-show="loading" class="flex-1 flex items-center justify-center min-h-[50vh]">
+    <svg class="animate-spin w-8 h-8 text-sage" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+  </div>
+
+  <main x-show="!loading" class="flex-1" style="display:none;">
+    
+    <!-- ── HERO SECTION ───────────────────────────────────────────── -->
+    <section class="relative bg-gradient-to-b from-sage/20 via-sand/40 to-cream py-16 sm:py-24 overflow-hidden border-b border-border">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 relative z-10 text-center space-y-4">
+        <span class="inline-flex px-3.5 py-1 rounded-full bg-sage/15 text-sage-deep text-xs font-semibold uppercase tracking-wider">Mengenal Giva Store</span>
+        <h1 class="font-display text-4xl sm:text-6xl font-semibold text-ink tracking-tight">Tentang Kami</h1>
+        <p class="text-stone text-base sm:text-xl max-w-2xl mx-auto leading-relaxed" x-text="storeTagline"></p>
+      </div>
+
+      <!-- Background Decorative Blur Elements -->
+      <div class="absolute top-0 right-0 -mt-16 -mr-16 w-96 h-96 bg-sage/15 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute bottom-0 left-0 -mb-16 -ml-16 w-80 h-80 bg-sage/15 rounded-full blur-3xl pointer-events-none"></div>
+    </section>
+
+    <!-- ── SECTION: CERITA KAMI (2 Kolom Desktop) ────────────────── -->
+    <section class="py-16 sm:py-24 max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+        
+        <!-- Text Left -->
+        <div class="space-y-6">
+          <div class="space-y-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-sage-deep">Kisah & Filosofi</span>
+            <h2 class="font-display text-3xl sm:text-4xl font-semibold text-ink tracking-tight">Cerita Kami</h2>
+          </div>
+
+          <div class="space-y-4 text-stone text-sm sm:text-base leading-relaxed">
+            <template x-for="(paragraph, index) in aboutParagraphs" :key="index">
+              <p x-text="paragraph"></p>
+            </template>
+          </div>
+        </div>
+
+        <!-- Image Right -->
+        <div class="relative">
+          <div class="aspect-[4/3] rounded-3xl bg-sand border border-border overflow-hidden shadow-lg relative z-10">
+            <template x-if="settings.store_hero_image_url">
+              <img :src="settings.store_hero_image_url" alt="Cerita Giva Store" class="w-full h-full object-cover" />
+            </template>
+            <template x-if="!settings.store_hero_image_url">
+              <div class="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-sand/60">
+                <div class="w-20 h-20 bg-sage/15 text-sage-deep rounded-full flex items-center justify-center mb-4">
+                  <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                </div>
+                <p class="font-display text-2xl font-semibold text-ink" x-text="storeName"></p>
+                <p class="text-xs text-stone mt-1">Keindahan & Kualitas Terbaik dalam Setiap Detail</p>
+              </div>
+            </template>
+          </div>
+          <!-- Decorative Frame Overlay -->
+          <div class="absolute -bottom-4 -right-4 w-full h-full border-2 border-sage/30 rounded-3xl -z-0"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── SECTION: CARA KAMI MEMILIH ────────────────────────────── -->
+    <section class="py-16 sm:py-24 bg-sand/40 border-y border-border">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        
+        <div class="text-center max-w-xl mx-auto mb-16 space-y-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-sage-deep">Komitmen Kualitas</span>
+          <h2 class="font-display text-3xl sm:text-4xl font-semibold text-ink tracking-tight">Cara Kami Memilih</h2>
+          <p class="text-stone text-sm">Tiga pilar kurasi ketat yang kami pegang teguh sebelum produk hadir di tangan Anda.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          
+          <!-- Column 1: Tangan / Pegang -->
+          <div class="bg-white rounded-3xl p-8 border border-border shadow-sm hover:border-sage/40 transition-all text-center space-y-4">
+            <div class="w-16 h-16 bg-sage/10 text-sage-deep rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
+              </svg>
+            </div>
+            <h3 class="font-display text-2xl font-semibold text-ink">Kami Pegang Langsung</h3>
+            <p class="text-stone text-sm leading-relaxed">Setiap produk kami seleksi secara fisik sebelum masuk kurasi kami.</p>
+          </div>
+
+          <!-- Column 2: Bintang / Uji Kualitas -->
+          <div class="bg-white rounded-3xl p-8 border border-border shadow-sm hover:border-sage/40 transition-all text-center space-y-4">
+            <div class="w-16 h-16 bg-sage/10 text-sage-deep rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 class="font-display text-2xl font-semibold text-ink">Kami Uji Kualitasnya</h3>
+            <p class="text-stone text-sm leading-relaxed">Bahan, jahitan, dan finishing diperiksa satu per satu.</p>
+          </div>
+
+          <!-- Column 3: Hati / Rekomendasi -->
+          <div class="bg-white rounded-3xl p-8 border border-border shadow-sm hover:border-sage/40 transition-all text-center space-y-4">
+            <div class="w-16 h-16 bg-sage/10 text-sage-deep rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            </div>
+            <h3 class="font-display text-2xl font-semibold text-ink">Baru Kami Rekomendasikan</h3>
+            <p class="text-stone text-sm leading-relaxed">Hanya yang terbaik yang kami hadirkan untuk kamu.</p>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── SECTION: HUBUNGI KAMI ──────────────────────────────────── -->
+    <section class="py-16 sm:py-24 max-w-6xl mx-auto px-4 sm:px-6 text-center">
+      <div class="max-w-xl mx-auto space-y-3 mb-12">
+        <h2 class="font-display text-3xl sm:text-4xl font-semibold text-ink tracking-tight">Ada yang ingin ditanyakan?</h2>
+        <p class="text-stone text-sm leading-relaxed">Kami senang membantu — baik untuk rekomendasi produk, info pesanan, atau sekadar berbagi cerita.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+        
+        <!-- Card 1: WhatsApp -->
+        <div class="bg-sand p-6 rounded-xl border border-border flex flex-col justify-between space-y-4 hover:border-sage/40 transition-all">
+          <div class="space-y-3">
+            <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 00-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-ink text-base">WhatsApp CS</h3>
+              <p class="text-xs text-stone mt-0.5" x-text="settings.store_whatsapp || 'Belum diatur'"></p>
+            </div>
+          </div>
+
+          <a
+            :href="waLink()"
+            target="_blank"
+            rel="noopener"
+            class="w-full py-2.5 rounded-xl bg-emerald-600 text-white font-semibold text-xs text-center hover:bg-emerald-700 transition-colors cursor-pointer"
+          >
+            Chat Sekarang
+          </a>
+        </div>
+
+        <!-- Card 2: Instagram -->
+        <div class="bg-sand p-6 rounded-xl border border-border flex flex-col justify-between space-y-4 hover:border-sage/40 transition-all">
+          <div class="space-y-3">
+            <div class="w-12 h-12 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-ink text-base">Instagram</h3>
+              <p class="text-xs text-stone mt-0.5" x-text="settings.store_instagram || 'Belum diatur'"></p>
+            </div>
+          </div>
+
+          <a
+            :href="igLink()"
+            target="_blank"
+            rel="noopener"
+            class="w-full py-2.5 rounded-xl bg-pink-600 text-white font-semibold text-xs text-center hover:bg-pink-700 transition-colors cursor-pointer"
+          >
+            Follow Kami
+          </a>
+        </div>
+
+        <!-- Card 3: Lokasi Toko -->
+        <div class="bg-sand p-6 rounded-xl border border-border flex flex-col justify-between space-y-4 hover:border-sage/40 transition-all">
+          <div class="space-y-3">
+            <div class="w-12 h-12 rounded-xl bg-sage/15 text-sage-deep flex items-center justify-center">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-ink text-base">Lokasi Toko</h3>
+              <p class="text-xs text-stone mt-0.5 leading-relaxed line-clamp-3" x-text="settings.store_address || 'Alamat toko belum diatur.'"></p>
+            </div>
+          </div>
+
+          <span class="text-xs font-semibold text-stone italic">Kunjungi showroom kami</span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── CTA AKHIR ──────────────────────────────────────────────── -->
+    <section class="bg-sage py-16 text-white text-center">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 space-y-6">
+        <h2 class="font-display text-3xl sm:text-5xl font-semibold text-white tracking-tight">Temukan Produk yang Tepat untuk Kamu</h2>
+        <div class="flex flex-wrap items-center justify-center gap-4 pt-2">
+          <a
+            href="/toko/products.html"
+            class="px-8 py-3.5 rounded-full border-2 border-white text-white font-semibold text-sm sm:text-base hover:bg-white hover:text-sage transition-all shadow-sm"
+          >
+            Lihat Koleksi
+          </a>
+          <a
+            :href="waLink()"
+            target="_blank"
+            rel="noopener"
+            class="px-8 py-3.5 rounded-full bg-white text-sage-deep font-semibold text-sm sm:text-base hover:bg-cream transition-all shadow-md"
+          >
+            Hubungi Kami via WA
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="footer-container"></div>
+
+  <script type="module" src="/src/toko/about.js"></script>
+</body>
+</html>

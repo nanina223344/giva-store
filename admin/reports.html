@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Laporan — Admin Giva Store</title>
+  <meta name="description" content="Laporan penjualan, produk, pelanggan, pembelian, dan stok Giva Store." />
+  <link rel="stylesheet" href="/src/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+
+<body class="bg-cream text-ink min-h-screen font-sans antialiased" x-data="reportsAdmin" x-init="init()" x-cloak>
+
+  <!-- Layout Container -->
+  <div class="flex min-h-screen">
+    
+    <!-- Sidebar Component -->
+    <div id="admin-sidebar"></div>
+
+    <!-- Main Content Panel -->
+    <div class="flex-1 flex flex-col min-w-0">
+      
+      <!-- Top Bar -->
+      <header class="bg-cream/80 backdrop-blur border-b border-border px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-20 flex-wrap gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <button
+            id="btn-hamburger"
+            onclick="openSidebar()"
+            class="lg:hidden w-11 h-11 -ml-1 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all flex-shrink-0"
+            aria-label="Menu"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button>
+          
+          <div>
+            <h1 class="text-lg sm:text-2xl font-display font-semibold text-ink leading-tight truncate">Laporan</h1>
+            <p class="text-xs text-stone mt-0.5 hidden sm:block">Analisis performa bisnis, omzet, produk terlaris, dan arus stok</p>
+          </div>
+        </div>
+
+        <!-- Date Range Filter Picker Header -->
+        <div class="flex items-center gap-2 text-xs text-stone bg-white p-2 rounded-2xl border border-border shadow-sm flex-wrap">
+          <span class="font-semibold text-ink pl-1">Periode:</span>
+          <input
+            type="date"
+            x-model="startDate"
+            class="px-3 py-1.5 rounded-xl border border-border bg-cream/30 focus:bg-white focus:outline-none focus:border-sage font-medium cursor-pointer"
+          />
+          <span>s/d</span>
+          <input
+            type="date"
+            x-model="endDate"
+            class="px-3 py-1.5 rounded-xl border border-border bg-cream/30 focus:bg-white focus:outline-none focus:border-sage font-medium cursor-pointer"
+          />
+          <button
+            type="button"
+            @click="fetchAllReportsData()"
+            class="px-4 py-1.5 rounded-xl bg-sage hover:bg-sage-deep text-white font-semibold shadow-sm transition-colors cursor-pointer"
+          >
+            Terapkan
+          </button>
+        </div>
+      </header>
+
+      <!-- Content Container -->
+      <main class="flex-1 p-4 sm:p-8 space-y-6">
+        
+        <!-- Tab Navigation Bar -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-border">
+          <button
+            @click="activeTab = 'ringkasan'; $nextTick(() => renderCharts())"
+            :class="activeTab === 'ringkasan' ? 'border-sage text-sage-deep bg-sage/10 font-bold' : 'border-transparent text-stone hover:text-ink font-medium'"
+            class="px-4 py-2.5 rounded-xl text-xs whitespace-nowrap transition-all border cursor-pointer"
+          >
+            Ringkasan
+          </button>
+          <button
+            @click="activeTab = 'penjualan'"
+            :class="activeTab === 'penjualan' ? 'border-sage text-sage-deep bg-sage/10 font-bold' : 'border-transparent text-stone hover:text-ink font-medium'"
+            class="px-4 py-2.5 rounded-xl text-xs whitespace-nowrap transition-all border cursor-pointer"
+          >
+            Penjualan
+          </button>
+          <button
+            @click="activeTab = 'produk'"
+            :class="activeTab === 'produk' ? 'border-sage text-sage-deep bg-sage/10 font-bold' : 'border-transparent text-stone hover:text-ink font-medium'"
+            class="px-4 py-2.5 rounded-xl text-xs whitespace-nowrap transition-all border cursor-pointer"
+          >
+            Produk
+          </button>
+          <button
+            @click="activeTab = 'pelanggan'"
+            :class="activeTab === 'pelanggan' ? 'border-sage text-sage-deep bg-sage/10 font-bold' : 'border-transparent text-stone hover:text-ink font-medium'"
+            class="px-4 py-2.5 rounded-xl text-xs whitespace-nowrap transition-all border cursor-pointer"
+          >
+            Pelanggan
+          </button>
+          <button
+            @click="activeTab = 'pembelian'"
+            :class="activeTab === 'pembelian' ? 'border-sage text-sage-deep bg-sage/10 font-bold' : 'border-transparent text-stone hover:text-ink font-medium'"
+            class="px-4 py-2.5 rounded-xl text-xs whitespace-nowrap transition-all border cursor-pointer"
+          >
+            Pembelian & Laba
+          </button>
+          <button
+            @click="activeTab = 'stok'"
+            :class="activeTab === 'stok' ? 'border-sage text-sage-deep bg-sage/10 font-bold' : 'border-transparent text-stone hover:text-ink font-medium'"
+            class="px-4 py-2.5 rounded-xl text-xs whitespace-nowrap transition-all border cursor-pointer"
+          >
+            Stok
+          </button>
+        </div>
+
+        <!-- Loading State Skeleton -->
+        <div x-show="loading" class="py-20 text-center text-stone">
+          <svg class="animate-spin w-8 h-8 mx-auto text-sage mb-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+          Mengkalkulasi laporan...
+        </div>
+
+        <div x-show="!loading" class="space-y-6">
+
+          <!-- ══════════════════════════════════════════════════════════
+               TAB 1 — RINGKASAN
+          ═══════════════════════════════════════════════════════════ -->
+          <div x-show="activeTab === 'ringkasan'" class="space-y-6">
+            
+            <!-- 4 Metric Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              <!-- Card 1: Total Pendapatan -->
+              <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-2">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Total Pendapatan</p>
+                <h3 class="font-display text-2xl font-bold text-ink" x-text="formatPrice(metrics.totalRevenue)"></h3>
+                <div class="flex items-center gap-1.5 text-xs font-semibold" :class="metrics.pctRevenue >= 0 ? 'text-emerald-700' : 'text-red-600'">
+                  <span x-text="metrics.pctRevenue >= 0 ? `+${metrics.pctRevenue}%` : `${metrics.pctRevenue}%`"></span>
+                  <span class="text-stone font-normal">vs periode sebelumnya</span>
+                </div>
+              </div>
+
+              <!-- Card 2: Total Pesanan -->
+              <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-2">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Total Pesanan</p>
+                <h3 class="font-display text-2xl font-bold text-ink" x-text="`${metrics.totalOrders} Transaksi`"></h3>
+                <div class="flex items-center gap-1.5 text-xs font-semibold" :class="metrics.pctOrders >= 0 ? 'text-emerald-700' : 'text-red-600'">
+                  <span x-text="metrics.pctOrders >= 0 ? `+${metrics.pctOrders}%` : `${metrics.pctOrders}%`"></span>
+                  <span class="text-stone font-normal">vs periode sebelumnya</span>
+                </div>
+              </div>
+
+              <!-- Card 3: Rata-rata Nilai Pesanan -->
+              <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-2">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Rata-rata Pesanan</p>
+                <h3 class="font-display text-2xl font-bold text-ink" x-text="formatPrice(metrics.avgOrderValue)"></h3>
+                <div class="flex items-center gap-1.5 text-xs font-semibold" :class="metrics.pctAvgOrder >= 0 ? 'text-emerald-700' : 'text-red-600'">
+                  <span x-text="metrics.pctAvgOrder >= 0 ? `+${metrics.pctAvgOrder}%` : `${metrics.pctAvgOrder}%`"></span>
+                  <span class="text-stone font-normal">vs periode sebelumnya</span>
+                </div>
+              </div>
+
+              <!-- Card 4: Total Item Terjual -->
+              <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-2">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Total Item Terjual</p>
+                <h3 class="font-display text-2xl font-bold text-ink" x-text="`${metrics.totalItemsSold} Qty`"></h3>
+                <div class="flex items-center gap-1.5 text-xs font-semibold" :class="metrics.pctItems >= 0 ? 'text-emerald-700' : 'text-red-600'">
+                  <span x-text="metrics.pctItems >= 0 ? `+${metrics.pctItems}%` : `${metrics.pctItems}%`"></span>
+                  <span class="text-stone font-normal">vs periode sebelumnya</span>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Grafik Pendapatan Harian & Breakdown Channel -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              <!-- Grafik Pendapatan Harian (2 Cols) -->
+              <div class="lg:col-span-2 p-6 rounded-2xl bg-white border border-border shadow-sm space-y-4">
+                <h3 class="font-display text-lg font-semibold text-ink">Grafik Pendapatan Harian</h3>
+                <div class="h-64 relative">
+                  <canvas id="chartDailyRevenue"></canvas>
+                </div>
+              </div>
+
+              <!-- Breakdown Channel (1 Col) -->
+              <div class="p-6 rounded-2xl bg-white border border-border shadow-sm space-y-5">
+                <h3 class="font-display text-lg font-semibold text-ink">Penjualan per Channel</h3>
+                
+                <div class="space-y-4">
+                  <!-- Offline / Kasir -->
+                  <div class="p-4 rounded-xl bg-sand/40 border border-border space-y-1">
+                    <div class="flex justify-between items-center text-xs font-semibold">
+                      <span class="text-ink flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-sage"></span>
+                        Offline (Kasir POS)
+                      </span>
+                      <span class="text-sage-deep" x-text="`${channelBreakdown.offline.pct}%`"></span>
+                    </div>
+                    <p class="font-display text-xl font-bold text-ink" x-text="formatPrice(channelBreakdown.offline.revenue)"></p>
+                    <p class="text-[11px] text-stone" x-text="`${channelBreakdown.offline.orders} Transaksi Kasir`"></p>
+                  </div>
+
+                  <!-- Online / Toko -->
+                  <div class="p-4 rounded-xl bg-sand/40 border border-border space-y-1">
+                    <div class="flex justify-between items-center text-xs font-semibold">
+                      <span class="text-ink flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                        Online (Toko Web)
+                      </span>
+                      <span class="text-blue-700" x-text="`${channelBreakdown.online.pct}%`"></span>
+                    </div>
+                    <p class="font-display text-xl font-bold text-ink" x-text="formatPrice(channelBreakdown.online.revenue)"></p>
+                    <p class="text-[11px] text-stone" x-text="`${channelBreakdown.online.orders} Pesanan Web`"></p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Metode Pembayaran Donut Chart -->
+            <div class="p-6 rounded-2xl bg-white border border-border shadow-sm space-y-4">
+              <h3 class="font-display text-lg font-semibold text-ink">Metode Pembayaran</h3>
+              <div class="h-64 relative max-w-md mx-auto">
+                <canvas id="chartPaymentMethods"></canvas>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ══════════════════════════════════════════════════════════
+               TAB 2 — PENJUALAN
+          ═══════════════════════════════════════════════════════════ -->
+          <div x-show="activeTab === 'penjualan'" class="space-y-6">
+            
+            <!-- Controls & CSV Export -->
+            <div class="p-4 rounded-2xl bg-white border border-border shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+              <div class="flex items-center gap-3 flex-wrap text-xs">
+                <!-- Channel Filter -->
+                <div class="flex items-center gap-1">
+                  <span class="text-stone font-medium">Channel:</span>
+                  <select x-model="salesFilterChannel" class="px-3 py-1.5 rounded-xl border border-border bg-cream/30 text-xs font-semibold cursor-pointer">
+                    <option value="all">Semua Channel</option>
+                    <option value="pos">Kasir (POS)</option>
+                    <option value="online">Online (Toko)</option>
+                  </select>
+                </div>
+
+                <!-- Status Filter -->
+                <div class="flex items-center gap-1">
+                  <span class="text-stone font-medium">Status:</span>
+                  <select x-model="salesFilterStatus" class="px-3 py-1.5 rounded-xl border border-border bg-cream/30 text-xs font-semibold cursor-pointer">
+                    <option value="all">Semua Status</option>
+                    <option value="paid">Lunas / Paid</option>
+                    <option value="unpaid">Belum Lunas</option>
+                    <option value="failed">Gagal / Ditolak</option>
+                  </select>
+                </div>
+
+                <!-- Sort By -->
+                <div class="flex items-center gap-1">
+                  <span class="text-stone font-medium">Urutkan:</span>
+                  <select x-model="salesSortBy" class="px-3 py-1.5 rounded-xl border border-border bg-cream/30 text-xs font-semibold cursor-pointer">
+                    <option value="date_desc">Tanggal Terbaru</option>
+                    <option value="total_desc">Nominal Tertinggi</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Export CSV Button -->
+              <button
+                type="button"
+                @click="exportSalesCSV()"
+                class="px-4 py-2 rounded-xl bg-sage hover:bg-sage-deep text-white text-xs font-semibold flex items-center gap-2 shadow-sm transition-colors cursor-pointer self-end md:self-auto"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Export CSV
+              </button>
+            </div>
+
+            <!-- Tabel Transaksi Penjualan -->
+            <div class="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-sand/40 border-b border-border text-stone font-semibold uppercase tracking-wider">
+                    <tr>
+                      <th class="py-3.5 px-4">Tanggal</th>
+                      <th class="py-3.5 px-4">No. Transaksi</th>
+                      <th class="py-3.5 px-4">Channel</th>
+                      <th class="py-3.5 px-4">Customer / Kasir</th>
+                      <th class="py-3.5 px-4">Total</th>
+                      <th class="py-3.5 px-4">Metode Bayar</th>
+                      <th class="py-3.5 px-4">Status</th>
+                      <th class="py-3.5 px-4 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+
+                  <tbody class="divide-y divide-border">
+                    <template x-for="sale in paginatedSales" :key="sale.id">
+                      <tr class="hover:bg-cream/40 transition-colors">
+                        <td class="py-4 px-4 text-stone font-medium whitespace-nowrap" x-text="formatDate(sale.created_at)"></td>
+                        <td class="py-4 px-4 font-mono font-bold text-ink" x-text="`#${sale.id.substring(0,8).toUpperCase()}`"></td>
+                        <td class="py-4 px-4 whitespace-nowrap">
+                          <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase" :class="sale.channel === 'pos' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'" x-text="sale.channel === 'pos' ? 'Kasir (POS)' : 'Online'"></span>
+                        </td>
+                        <td class="py-4 px-4 font-semibold text-ink" x-text="sale.customers?.name || sale.staff?.name || 'Walk-in Customer'"></td>
+                        <td class="py-4 px-4 font-semibold text-ink whitespace-nowrap" x-text="formatPrice(sale.total_amount)"></td>
+                        <td class="py-4 px-4 text-stone font-medium" x-text="(sale.payments && sale.payments[0]) ? sale.payments[0].method : 'Cash'"></td>
+                        <td class="py-4 px-4 whitespace-nowrap">
+                          <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase" :class="sale.payment_status === 'paid' ? 'bg-sage/15 text-sage-deep' : 'bg-amber-100 text-amber-800'" x-text="sale.payment_status === 'paid' ? 'Paid' : 'Unpaid'"></span>
+                        </td>
+                        <td class="py-4 px-4 text-right">
+                          <button @click="openSaleDetail(sale)" class="px-3 py-1 rounded-lg border border-sage text-sage-deep font-semibold text-xs hover:bg-sage/10 cursor-pointer">Detail</button>
+                        </td>
+                      </tr>
+                    </template>
+
+                    <template x-if="paginatedSales.length === 0">
+                      <tr><td colspan="8" class="py-12 text-center text-stone">Tidak ada transaksi penjualan yang cocok.</td></tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Pagination Footer -->
+              <div class="p-4 border-t border-border bg-sand/20 flex items-center justify-between text-xs">
+                <span class="text-stone" x-text="`Menampilkan ${paginatedSales.length} dari ${filteredSales.length} transaksi`"></span>
+                <div class="flex items-center gap-2">
+                  <button @click="salesPage--" :disabled="salesPage <= 1" class="px-3 py-1 rounded-lg border border-border bg-white disabled:opacity-40 font-semibold cursor-pointer">Sebelumnya</button>
+                  <span class="font-bold text-ink" x-text="`Halaman ${salesPage} dari ${salesTotalPages}`"></span>
+                  <button @click="salesPage++" :disabled="salesPage >= salesTotalPages" class="px-3 py-1 rounded-lg border border-border bg-white disabled:opacity-40 font-semibold cursor-pointer">Selanjutnya</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ══════════════════════════════════════════════════════════
+               TAB 3 — PRODUK
+          ═══════════════════════════════════════════════════════════ -->
+          <div x-show="activeTab === 'produk'" class="space-y-6">
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              <!-- 1. Top 20 Produk Terlaris -->
+              <div class="p-6 rounded-2xl bg-white border border-border shadow-sm space-y-4">
+                <h3 class="font-display text-lg font-semibold text-ink">Produk Terlaris (Top 20)</h3>
+                
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-xs">
+                    <thead class="bg-sand/40 text-stone uppercase tracking-wider border-b border-border font-semibold">
+                      <tr>
+                        <th class="py-2.5 px-3">#</th>
+                        <th class="py-2.5 px-3">Nama Produk</th>
+                        <th class="py-2.5 px-3">Kategori</th>
+                        <th class="py-2.5 px-3 text-center">Terjual</th>
+                        <th class="py-2.5 px-3 text-right">Pendapatan</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                      <template x-for="(prod, idx) in topProducts" :key="prod.id">
+                        <tr>
+                          <td class="py-3 px-3 font-bold text-stone" x-text="idx + 1"></td>
+                          <td class="py-3 px-3">
+                            <p class="font-semibold text-ink" x-text="prod.name"></p>
+                            <p class="text-[10px] text-stone" x-text="prod.brand"></p>
+                          </td>
+                          <td class="py-3 px-3 text-stone" x-text="prod.category"></td>
+                          <td class="py-3 px-3 text-center font-bold text-sage-deep" x-text="`${prod.totalQty} qty`"></td>
+                          <td class="py-3 px-3 text-right font-semibold text-ink" x-text="formatPrice(prod.totalRev)"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- 2. Terlaris per Warna -->
+              <div class="p-6 rounded-2xl bg-white border border-border shadow-sm space-y-4">
+                <h3 class="font-display text-lg font-semibold text-ink">Terlaris per Varian Warna</h3>
+                
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-xs">
+                    <thead class="bg-sand/40 text-stone uppercase tracking-wider border-b border-border font-semibold">
+                      <tr>
+                        <th class="py-2.5 px-3">Produk & Warna</th>
+                        <th class="py-2.5 px-3 text-center">Terjual</th>
+                        <th class="py-2.5 px-3 text-right">Stok Saat Ini</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                      <template x-for="c in topVariantColors" :key="c.variant_id">
+                        <tr>
+                          <td class="py-3 px-3">
+                            <p class="font-semibold text-ink" x-text="c.product_name"></p>
+                            <div class="flex items-center gap-1.5 mt-0.5">
+                              <span class="w-2.5 h-2.5 rounded-full border border-border" :style="`background-color: ${c.hex_code}`"></span>
+                              <span class="text-[11px] text-stone" x-text="c.color_name"></span>
+                            </div>
+                          </td>
+                          <td class="py-3 px-3 text-center font-bold text-sage-deep" x-text="`${c.totalQty} qty`"></td>
+                          <td class="py-3 px-3 text-right font-semibold text-ink" x-text="`${c.currentStock} pcs`"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- 3. Produk Tidak Bergerak -->
+            <div class="p-6 rounded-2xl bg-white border border-border shadow-sm space-y-4">
+              <h3 class="font-display text-lg font-semibold text-ink">Produk Tidak Bergerak (0 Penjualan di Periode Ini)</h3>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-sand/40 text-stone uppercase tracking-wider border-b border-border font-semibold">
+                    <tr>
+                      <th class="py-2.5 px-3">Nama Produk</th>
+                      <th class="py-2.5 px-3">Kategori</th>
+                      <th class="py-2.5 px-3 text-right">Stok Tersedia</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-border">
+                    <template x-for="nm in nonMovingProducts" :key="nm.id">
+                      <tr>
+                        <td class="py-3 px-3 font-semibold text-ink" x-text="nm.name"></td>
+                        <td class="py-3 px-3 text-stone" x-text="nm.category"></td>
+                        <td class="py-3 px-3 text-right font-bold text-amber-700" x-text="`${nm.currentStock} pcs`"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ══════════════════════════════════════════════════════════
+               TAB 4 — PELANGGAN
+          ═══════════════════════════════════════════════════════════ -->
+          <div x-show="activeTab === 'pelanggan'" class="space-y-6">
+            
+            <!-- Customer Metrics Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-1">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Customer Baru</p>
+                <h3 class="font-display text-2xl font-bold text-ink" x-text="`${customerMetrics.newCustomers} Orang`"></h3>
+                <p class="text-[11px] text-stone">Terdaftar di periode ini</p>
+              </div>
+
+              <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-1">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Aktif Belanja</p>
+                <h3 class="font-display text-2xl font-bold text-ink" x-text="`${customerMetrics.purchasingCustomers} Orang`"></h3>
+                <p class="text-[11px] text-stone">Melakukan transaksi</p>
+              </div>
+
+              <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-1">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Customer Paling Aktif</p>
+                <h3 class="font-semibold text-ink text-sm truncate" x-text="customerMetrics.mostActiveName"></h3>
+                <p class="text-[11px] text-stone">Transaksi terbanyak</p>
+              </div>
+            </div>
+
+            <!-- Customer Search & Filter Bar -->
+            <div class="p-4 rounded-2xl bg-white border border-border shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <input
+                type="text"
+                x-model="customerSearchQuery"
+                placeholder="Cari nama atau email customer..."
+                class="px-4 py-2 text-xs rounded-xl border border-border bg-cream/40 focus:bg-white focus:outline-none focus:border-sage max-w-md"
+              />
+
+              <div class="flex items-center gap-2 text-xs">
+                <span class="text-stone font-medium">Urutkan:</span>
+                <select x-model="customerSortBy" class="px-3 py-1.5 rounded-xl border border-border bg-cream/30 text-xs font-semibold cursor-pointer">
+                  <option value="total_spend_desc">Total Belanja Tertinggi</option>
+                  <option value="total_orders_desc">Transaksi Terbanyak</option>
+                  <option value="last_order_desc">Terakhir Belanja</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Customer Table -->
+            <div class="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-sand/40 border-b border-border text-stone font-semibold uppercase tracking-wider">
+                    <tr>
+                      <th class="py-3.5 px-4">Nama Pelanggan</th>
+                      <th class="py-3.5 px-4">Email / Kontak</th>
+                      <th class="py-3.5 px-4 text-center">Total Pesanan</th>
+                      <th class="py-3.5 px-4">Total Belanja</th>
+                      <th class="py-3.5 px-4">Terakhir Belanja</th>
+                      <th class="py-3.5 px-4">Sumber</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-border">
+                    <template x-for="c in filteredCustomerReportList" :key="c.id">
+                      <tr class="hover:bg-cream/40 transition-colors">
+                        <td class="py-4 px-4 font-semibold text-ink" x-text="c.name"></td>
+                        <td class="py-4 px-4 text-stone" x-text="c.email"></td>
+                        <td class="py-4 px-4 text-center font-bold text-sage-deep" x-text="`${c.totalOrders} Transaksi`"></td>
+                        <td class="py-4 px-4 font-semibold text-ink" x-text="formatPrice(c.totalSpend)"></td>
+                        <td class="py-4 px-4 text-stone" x-text="c.lastOrderDate ? formatDate(c.lastOrderDate) : 'Belum Ada'"></td>
+                        <td class="py-4 px-4">
+                          <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase" :class="c.source === 'Online' ? 'bg-blue-100 text-blue-800' : 'bg-sand text-ink'" x-text="c.source"></span>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ══════════════════════════════════════════════════════════
+               TAB 5 — PEMBELIAN & LABA KOTOR
+          ═══════════════════════════════════════════════════════════ -->
+          <div x-show="activeTab === 'pembelian'" class="space-y-6">
+            
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-1">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Total Nilai PO Supplier</p>
+                <h3 class="font-display text-2xl font-bold text-ink" x-text="formatPrice(purchaseSummary.totalPOValue)"></h3>
+              </div>
+              <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-1">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Jumlah PO</p>
+                <h3 class="font-display text-2xl font-bold text-ink" x-text="`${purchaseSummary.countPO} PO`"></h3>
+              </div>
+              <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-1">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Total Item Masuk</p>
+                <h3 class="font-display text-2xl font-bold text-ink" x-text="`${purchaseSummary.totalItemsReceived} Qty`"></h3>
+              </div>
+            </div>
+
+            <!-- LABA KOTOR SEDERHANA CARD -->
+            <div class="p-6 rounded-2xl bg-sand/30 border border-border shadow-sm space-y-4">
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <h3 class="font-display text-xl font-semibold text-ink">Perhitungan Laba Kotor Sederhana</h3>
+                <span class="text-xs text-stone italic">*Tidak termasuk biaya operasional (sewa, gaji, listrik)</span>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2">
+                <div class="p-4 rounded-xl bg-white border border-border space-y-1">
+                  <span class="text-xs text-stone font-medium">Total Pendapatan (Paid)</span>
+                  <p class="font-display text-lg font-bold text-ink" x-text="formatPrice(grossProfit.revenue)"></p>
+                </div>
+                <div class="p-4 rounded-xl bg-white border border-border space-y-1">
+                  <span class="text-xs text-stone font-medium">Total HPP (Modal Produk)</span>
+                  <p class="font-display text-lg font-bold text-red-600" x-text="formatPrice(grossProfit.hpp)"></p>
+                </div>
+                <div class="p-4 rounded-xl bg-white border border-border space-y-1">
+                  <span class="text-xs text-stone font-medium">Laba Kotor</span>
+                  <p class="font-display text-lg font-bold text-sage-deep" x-text="formatPrice(grossProfit.profit)"></p>
+                </div>
+                <div class="p-4 rounded-xl bg-white border border-border space-y-1">
+                  <span class="text-xs text-stone font-medium">Margin Laba Kotor</span>
+                  <p class="font-display text-lg font-bold text-sage-deep" x-text="`${grossProfit.marginPct}%`"></p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabel Purchase Orders -->
+            <div class="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+              <div class="p-4 border-b border-border flex items-center justify-between">
+                <h3 class="font-display text-lg font-semibold text-ink">Daftar Purchase Order</h3>
+                <select x-model="purchaseStatusFilter" class="px-3 py-1.5 rounded-xl border border-border text-xs font-semibold bg-cream/30 cursor-pointer">
+                  <option value="all">Semua Status</option>
+                  <option value="draft">Draft</option>
+                  <option value="received">Received (Diterima)</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-sand/40 border-b border-border text-stone font-semibold uppercase tracking-wider">
+                    <tr>
+                      <th class="py-3.5 px-4">Tanggal PO</th>
+                      <th class="py-3.5 px-4">No. PO / Invoice</th>
+                      <th class="py-3.5 px-4">Supplier</th>
+                      <th class="py-3.5 px-4 text-center">Total Item</th>
+                      <th class="py-3.5 px-4">Total Nilai</th>
+                      <th class="py-3.5 px-4">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-border">
+                    <template x-for="po in filteredPurchaseOrdersList" :key="po.id">
+                      <tr class="hover:bg-cream/40 transition-colors">
+                        <td class="py-4 px-4 text-stone font-medium" x-text="po.order_date"></td>
+                        <td class="py-4 px-4 font-mono font-bold text-ink" x-text="po.po_number"></td>
+                        <td class="py-4 px-4 font-semibold text-ink" x-text="po.supplier_name"></td>
+                        <td class="py-4 px-4 text-center font-semibold text-ink" x-text="`${po.total_items} Qty`"></td>
+                        <td class="py-4 px-4 font-semibold text-ink" x-text="formatPrice(po.total_amount)"></td>
+                        <td class="py-4 px-4">
+                          <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase" :class="po.status === 'received' ? 'bg-sage/15 text-sage-deep' : 'bg-amber-100 text-amber-800'" x-text="po.status"></span>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ══════════════════════════════════════════════════════════
+               TAB 6 — STOK
+          ═══════════════════════════════════════════════════════════ -->
+          <div x-show="activeTab === 'stok'" class="space-y-6">
+            
+            <!-- Ringkasan Stok Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-1">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Total SKU Aktif</p>
+                <h3 class="font-display text-2xl font-bold text-ink" x-text="`${stockSummary.activeSKUs} SKU`"></h3>
+              </div>
+              <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-1">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Stok Tersedia</p>
+                <h3 class="font-display text-2xl font-bold text-sage-deep" x-text="`${stockSummary.availableItems} Item`"></h3>
+              </div>
+              <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-1">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Stok Dipesan (Reserved)</p>
+                <h3 class="font-display text-2xl font-bold text-amber-700" x-text="`${stockSummary.reservedItems} Item`"></h3>
+              </div>
+              <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-1">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Nilai Inventory (HPP)</p>
+                <h3 class="font-display text-2xl font-bold text-ink" x-text="formatPrice(stockSummary.inventoryValue)"></h3>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              <!-- Low Stock Alert -->
+              <div class="p-6 rounded-2xl bg-white border border-border shadow-sm space-y-4">
+                <h3 class="font-display text-lg font-semibold text-amber-800 flex items-center gap-2">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                  Stok Menipis (≤ 5 Pcs)
+                </h3>
+
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-xs">
+                    <thead class="bg-sand/40 border-b border-border text-stone uppercase tracking-wider font-semibold">
+                      <tr>
+                        <th class="py-2.5 px-3">Produk & Warna</th>
+                        <th class="py-2.5 px-3 text-center">Tersedia</th>
+                        <th class="py-2.5 px-3 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                      <template x-for="item in lowStockItems" :key="item.id">
+                        <tr>
+                          <td class="py-3 px-3">
+                            <p class="font-semibold text-ink" x-text="item.product_name"></p>
+                            <span class="text-[11px] text-stone" x-text="item.color_name"></span>
+                          </td>
+                          <td class="py-3 px-3 text-center font-bold text-amber-700" x-text="`${item.available} pcs`"></td>
+                          <td class="py-3 px-3 text-right">
+                            <a href="/admin/stock.html" class="px-3 py-1 rounded-lg bg-sand hover:bg-border text-ink font-semibold text-xs">Koreksi</a>
+                          </td>
+                        </tr>
+                      </template>
+                      <template x-if="lowStockItems.length === 0">
+                        <tr><td colspan="3" class="py-6 text-center text-stone">Tidak ada stok yang menipis.</td></tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Out of Stock Alert -->
+              <div class="p-6 rounded-2xl bg-white border border-border shadow-sm space-y-4">
+                <h3 class="font-display text-lg font-semibold text-red-600 flex items-center gap-2">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  Stok Habis (0 Pcs)
+                </h3>
+
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-xs">
+                    <thead class="bg-sand/40 border-b border-border text-stone uppercase tracking-wider font-semibold">
+                      <tr>
+                        <th class="py-2.5 px-3">Produk & Warna</th>
+                        <th class="py-2.5 px-3 text-center">Status</th>
+                        <th class="py-2.5 px-3 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                      <template x-for="item in outOfStockItems" :key="item.id">
+                        <tr>
+                          <td class="py-3 px-3">
+                            <p class="font-semibold text-ink" x-text="item.product_name"></p>
+                            <span class="text-[11px] text-stone" x-text="item.color_name"></span>
+                          </td>
+                          <td class="py-3 px-3 text-center"><span class="px-2 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold uppercase">Habis</span></td>
+                          <td class="py-3 px-3 text-right">
+                            <a href="/admin/purchases.html" class="px-3 py-1 rounded-lg bg-sage hover:bg-sage-deep text-white font-semibold text-xs">Buat PO</a>
+                          </td>
+                        </tr>
+                      </template>
+                      <template x-if="outOfStockItems.length === 0">
+                        <tr><td colspan="3" class="py-6 text-center text-stone">Tidak ada stok yang habis.</td></tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Log Pergerakan Stok -->
+            <div class="p-6 rounded-2xl bg-white border border-border shadow-sm space-y-4">
+              <h3 class="font-display text-lg font-semibold text-ink">Log Pergerakan Stok</h3>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-sand/40 border-b border-border text-stone uppercase tracking-wider font-semibold">
+                    <tr>
+                      <th class="py-3 px-4">Tanggal</th>
+                      <th class="py-3 px-4">Produk & Warna</th>
+                      <th class="py-3 px-4">Jenis Pergerakan</th>
+                      <th class="py-3 px-4 text-center">Qty</th>
+                      <th class="py-3 px-4">Referensi</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-border">
+                    <template x-for="(log, idx) in stockMovementsLog" :key="idx">
+                      <tr class="hover:bg-cream/40 transition-colors">
+                        <td class="py-3 px-4 text-stone font-medium" x-text="formatDate(log.date)"></td>
+                        <td class="py-3 px-4 font-semibold text-ink" x-text="`${log.product_name} (${log.color_name})`"></td>
+                        <td class="py-3 px-4">
+                          <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase" :class="log.type === 'IN' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'" x-text="log.typeLabel"></span>
+                        </td>
+                        <td class="py-3 px-4 text-center font-bold" :class="log.type === 'IN' ? 'text-emerald-700' : 'text-amber-800'" x-text="log.type === 'IN' ? `+${log.qty}` : `-${log.qty}`"></td>
+                        <td class="py-3 px-4 font-mono text-stone" x-text="log.refCode"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ── MODAL DETAIL PENJUALAN (LAPORAN) ──────────────────────── -->
+  <div x-show="showSaleDetailModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none;">
+    <div class="absolute inset-0 bg-ink/40 backdrop-blur-sm" @click="closeSaleDetail()"></div>
+    <div class="relative w-full max-w-2xl bg-white rounded-3xl shadow-xl border border-border overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-border flex items-center justify-between">
+        <h3 class="font-display text-xl font-semibold text-ink" x-text="`Detail Transaksi #${selectedSaleDetail?.id.substring(0,8).toUpperCase()}`"></h3>
+        <button @click="closeSaleDetail()" class="text-stone hover:text-ink cursor-pointer"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-4 text-xs">
+        <div class="grid grid-cols-2 gap-4 p-4 rounded-xl bg-sand/30 border border-border">
+          <div><span class="text-stone">Tanggal:</span> <p class="font-semibold text-ink" x-text="formatDate(selectedSaleDetail?.created_at)"></p></div>
+          <div><span class="text-stone">Channel:</span> <p class="font-semibold text-ink" x-text="selectedSaleDetail?.channel === 'pos' ? 'Kasir (POS)' : 'Online Web'"></p></div>
+          <div><span class="text-stone">Customer / Kasir:</span> <p class="font-semibold text-ink" x-text="selectedSaleDetail?.customers?.name || selectedSaleDetail?.staff?.name || 'Walk-in Customer'"></p></div>
+          <div><span class="text-stone">Status Pembayaran:</span> <p class="font-bold text-sage-deep uppercase" x-text="selectedSaleDetail?.payment_status"></p></div>
+        </div>
+
+        <div>
+          <h4 class="font-semibold text-ink uppercase tracking-wider mb-2">Daftar Item:</h4>
+          <div class="space-y-2 border-t border-border pt-2">
+            <template x-for="item in selectedSaleDetail?.items || []" :key="item.id">
+              <div class="flex items-center justify-between py-1">
+                <div>
+                  <p class="font-semibold text-ink" x-text="item.products?.name || 'Produk'"></p>
+                  <p class="text-[11px] text-stone" x-text="`${item.quantity} × ${formatPrice(item.unit_price)}`"></p>
+                </div>
+                <span class="font-semibold text-ink" x-text="formatPrice(item.subtotal)"></span>
+              </div>
+            </template>
+          </div>
+          <div class="pt-3 border-t border-border flex justify-between font-bold text-sm text-ink mt-3">
+            <span>Total Belanja:</span>
+            <span x-text="formatPrice(selectedSaleDetail?.total_amount)"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/admin/reports.js"></script>
+</body>
+</html>

@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pengaturan Toko — Admin Giva Store</title>
+  <meta name="description" content="Kelola pengaturan toko, pembayaran, dan informasi rekening Giva Store." />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+
+<body
+  class="bg-cream text-ink min-h-screen font-sans antialiased"
+  x-data="settingsAdmin"
+  x-init="init()"
+  x-cloak>
+
+  <div class="flex min-h-screen">
+
+        <div id="admin-sidebar"></div>
+
+
+    <!-- ── Main ───────────────────────────────────────────── -->
+    <div class="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+
+      <!-- Top bar -->
+      <header class="bg-cream/80 backdrop-blur border-b border-border px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-20">
+        <div class="flex items-center gap-3 min-w-0">
+          <button
+            id="btn-hamburger"
+            onclick="openSidebar()"
+            class="lg:hidden w-11 h-11 -ml-1 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div class="min-w-0">
+            <h1 class="text-lg sm:text-2xl font-display font-semibold text-ink leading-tight truncate">Pengaturan Toko</h1>
+            <p class="text-xs text-stone mt-0.5 hidden sm:block">Kelola konfigurasi, pembayaran, dan informasi rekening.</p>
+          </div>
+        </div>
+      </header>
+
+      <!-- Content -->
+      <main class="flex-1 px-4 sm:px-8 py-8 w-full max-w-4xl mx-auto space-y-8">
+        
+        <!-- Loading Indicator -->
+        <div x-show="loading" class="flex justify-center py-12">
+          <svg class="animate-spin h-8 w-8 text-sage" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+
+        <div x-show="!loading" class="space-y-8" style="display:none;">
+          
+          <!-- Grup: Toko -->
+          <section class="bg-white rounded-2xl border border-border overflow-hidden">
+            <div class="px-6 py-5 border-b border-border bg-sand/50">
+              <h2 class="text-base font-semibold text-ink">Informasi Toko</h2>
+              <p class="text-sm text-stone mt-0.5">Nama, alamat, dan kontak utama toko Anda.</p>
+            </div>
+            <div class="divide-y divide-border">
+              <template x-for="item in getGroup('toko')" :key="item.key">
+                <div class="p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div class="w-full sm:w-1/3 flex-shrink-0">
+                    <label class="block text-sm font-medium text-ink" x-text="item.label"></label>
+                  </div>
+                  <div class="flex-1 flex gap-3">
+                    <input type="text" x-model="item.value"
+                      class="flex-1 px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all placeholder:text-stone/50 bg-cream/50" />
+                    <button @click="saveSetting(item)"
+                      :disabled="item.saving"
+                      class="px-4 py-2 bg-sage hover:bg-sage-deep text-white text-sm font-medium rounded-xl transition-colors flex-shrink-0 disabled:opacity-50">
+                      <span x-text="item.saving ? '...' : 'Simpan'"></span>
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </section>
+
+          <!-- Grup: Pembayaran -->
+          <section class="bg-white rounded-2xl border border-border overflow-hidden">
+            <div class="px-6 py-5 border-b border-border bg-sand/50">
+              <h2 class="text-base font-semibold text-ink">Pembayaran (QRIS)</h2>
+              <p class="text-sm text-stone mt-0.5">Atur QRIS untuk kemudahan pembayaran pelanggan.</p>
+            </div>
+            <div class="divide-y divide-border">
+              <!-- Gambar QRIS (upload ke Storage) -->
+              <div class="p-6 flex flex-col sm:flex-row sm:items-start gap-4">
+                <div class="w-full sm:w-1/3 flex-shrink-0 pt-1">
+                  <label class="block text-sm font-medium text-ink">Gambar QRIS</label>
+                  <p class="text-xs text-stone mt-1">Upload file gambar ke storage. File lama diganti otomatis.</p>
+                </div>
+                <div class="flex-1 space-y-3">
+                  <!-- Preview -->
+                  <div x-show="qrisImageUrl" class="flex items-start gap-4" style="display:none;">
+                    <img :src="qrisImageUrl" alt="Preview QRIS"
+                      class="w-40 h-40 object-contain rounded-xl border border-border bg-white p-2" />
+                    <div class="flex flex-col gap-2 pt-1">
+                      <button type="button"
+                        @click="deleteQrisImage()"
+                        :disabled="deletingQris || uploadingQris"
+                        class="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 transition-colors disabled:opacity-50">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        <span x-text="deletingQris ? 'Menghapus...' : 'Hapus'"></span>
+                      </button>
+                      <p class="text-[11px] text-stone max-w-[12rem]">Ganti gambar dengan upload file baru di bawah.</p>
+                    </div>
+                  </div>
+
+                  <div x-show="!qrisImageUrl"
+                    class="w-40 h-40 rounded-xl border-2 border-dashed border-border bg-cream/50 flex items-center justify-center p-3">
+                    <p class="text-xs text-stone text-center">Belum ada gambar QRIS</p>
+                  </div>
+
+                  <!-- Upload button -->
+                  <div>
+                    <label
+                      class="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl bg-sage hover:bg-sage-deep text-white text-sm font-semibold cursor-pointer transition-colors disabled:opacity-50"
+                      :class="uploadingQris ? 'opacity-50 pointer-events-none' : ''">
+                      <svg x-show="!uploadingQris" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      <svg x-show="uploadingQris" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24" style="display:none;">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                      </svg>
+                      <span x-text="uploadingQris ? 'Mengupload...' : 'Upload Gambar QRIS'"></span>
+                      <input type="file" accept="image/*" class="hidden"
+                        @change="handleQrisUpload($event)"
+                        :disabled="uploadingQris || deletingQris" />
+                    </label>
+                    <p class="text-[11px] text-stone mt-1.5">JPG, PNG, WebP — maks. 5 MB. Disimpan sebagai qris.[ext] di bucket qris-image.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Nama pemilik + setting pembayaran lain (kecuali payment_qris_image_url) -->
+              <template x-for="item in getGroup('pembayaran').filter(s => s.key !== 'payment_qris_image_url')" :key="item.key">
+                <div class="p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div class="w-full sm:w-1/3 flex-shrink-0">
+                    <label class="block text-sm font-medium text-ink" x-text="item.label"></label>
+                  </div>
+                  <div class="flex-1 flex gap-3">
+                    <input type="text" x-model="item.value"
+                      class="flex-1 px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all placeholder:text-stone/50 bg-cream/50" />
+                    <button @click="saveSetting(item)"
+                      :disabled="item.saving"
+                      class="px-4 py-2 min-h-[44px] bg-sage hover:bg-sage-deep text-white text-sm font-medium rounded-xl transition-colors flex-shrink-0 disabled:opacity-50">
+                      <span x-text="item.saving ? '...' : 'Simpan'"></span>
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </section>
+
+          <!-- Grup: Rekening Bank -->
+          <section class="bg-white rounded-2xl border border-border overflow-hidden">
+            <div class="px-6 py-5 border-b border-border bg-sand/50 flex items-center justify-between gap-4">
+              <div>
+                <h2 class="text-base font-semibold text-ink">Rekening Bank</h2>
+                <p class="text-sm text-stone mt-0.5">Kelola rekening transfer yang tampil saat kasir memproses pembayaran.</p>
+              </div>
+              <button @click="openBankForm(null)"
+                class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-sage hover:bg-sage-deep text-white text-xs font-semibold rounded-xl transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Tambah Rekening
+              </button>
+            </div>
+
+            <!-- List rekening -->
+            <div class="divide-y divide-border">
+              <!-- Empty state -->
+              <div x-show="bankAccounts.length === 0 && !loadingBanks" class="px-6 py-10 text-center">
+                <svg class="w-10 h-10 text-border mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+                <p class="text-sm text-stone">Belum ada rekening bank.</p>
+                <p class="text-xs text-stone/70 mt-1">Klik "Tambah Rekening" untuk menambahkan rekening baru.</p>
+              </div>
+              <!-- Loading banks -->
+              <div x-show="loadingBanks" class="px-6 py-8 flex justify-center">
+                <svg class="animate-spin h-5 w-5 text-sage" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+              </div>
+              <!-- Bank rows -->
+              <template x-for="bank in bankAccounts" :key="bank.id">
+                <div class="px-6 py-4 flex items-center gap-4">
+                  <!-- Sort order handle / number -->
+                  <div class="flex-shrink-0 w-6 text-center">
+                    <span class="text-xs text-stone/50 font-mono" x-text="bank.sort_order ?? 0"></span>
+                  </div>
+                  <!-- Info rekening -->
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="text-sm font-semibold text-ink" x-text="bank.bank_name"></span>
+                      <span
+                        :class="bank.is_active ? 'bg-sage/10 text-sage-deep border-sage/25' : 'bg-stone/10 text-stone border-stone/20'"
+                        class="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+                        x-text="bank.is_active ? 'Aktif' : 'Nonaktif'">
+                      </span>
+                    </div>
+                    <p class="text-sm text-stone mt-0.5" x-text="bank.account_number"></p>
+                    <p class="text-xs text-stone/70" x-text="'a.n. ' + bank.account_name"></p>
+                  </div>
+                  <!-- Actions -->
+                  <div class="flex items-center gap-1 flex-shrink-0">
+                    <button @click="openBankForm(bank)"
+                      class="w-8 h-8 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all"
+                      title="Edit">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button @click="confirmDeleteBank(bank)"
+                      class="w-8 h-8 rounded-lg text-stone hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-all"
+                      title="Hapus">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </section>
+
+          <!-- Grup: E-Wallet -->
+          <section class="bg-white rounded-2xl border border-border overflow-hidden">
+            <div class="px-6 py-5 border-b border-border bg-sand/50">
+              <h2 class="text-base font-semibold text-ink">E-Wallet</h2>
+              <p class="text-sm text-stone mt-0.5">Nomor tujuan untuk pembayaran dompet digital.</p>
+            </div>
+            <div class="divide-y divide-border">
+              <template x-for="item in getGroup('ewallet')" :key="item.key">
+                <div class="p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div class="w-full sm:w-1/3 flex-shrink-0">
+                    <label class="block text-sm font-medium text-ink" x-text="item.label"></label>
+                  </div>
+                  <div class="flex-1 flex gap-3">
+                    <input type="text" x-model="item.value"
+                      class="flex-1 px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all placeholder:text-stone/50 bg-cream/50" />
+                    <button @click="saveSetting(item)"
+                      :disabled="item.saving"
+                      class="px-4 py-2 bg-sage hover:bg-sage-deep text-white text-sm font-medium rounded-xl transition-colors flex-shrink-0 disabled:opacity-50">
+                      <span x-text="item.saving ? '...' : 'Simpan'"></span>
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </section>
+
+          <!-- Grup: Announcement Bar -->
+          <section class="bg-white rounded-2xl border border-border overflow-hidden">
+            <div class="px-6 py-5 border-b border-border bg-sand/50">
+              <h2 class="text-base font-semibold text-ink">Announcement Bar</h2>
+              <p class="text-sm text-stone mt-0.5">Bar pengumuman di atas navbar semua halaman toko. Bisa di-dismiss per sesi.</p>
+            </div>
+            <div class="divide-y divide-border">
+
+              <!-- Toggle aktif -->
+              <template x-for="item in getGroup('announcement').filter(s => s.key === 'announcement_bar_active')" :key="item.key">
+                <div class="p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div class="w-full sm:w-1/3 flex-shrink-0">
+                    <label class="block text-sm font-medium text-ink">Tampilkan Bar</label>
+                    <p class="text-xs text-stone mt-0.5">Bar ditampilkan di semua halaman toko</p>
+                  </div>
+                  <div class="flex-1 flex items-center gap-4">
+                    <button type="button"
+                      @click="item.value = item.value === 'true' ? 'false' : 'true'"
+                      :class="item.value === 'true' ? 'bg-sage' : 'bg-border'"
+                      class="relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0">
+                      <span :class="item.value === 'true' ? 'translate-x-5' : 'translate-x-0'"
+                        class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></span>
+                    </button>
+                    <span class="text-sm font-medium" :class="item.value === 'true' ? 'text-sage-deep' : 'text-stone'"
+                          x-text="item.value === 'true' ? 'Aktif' : 'Nonaktif'"></span>
+                    <button @click="saveSetting(item)" :disabled="item.saving"
+                      class="ml-auto px-4 py-2 min-h-[40px] bg-sage hover:bg-sage-deep text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-50">
+                      <span x-text="item.saving ? '...' : 'Simpan'"></span>
+                    </button>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Teks pengumuman -->
+              <template x-for="item in getGroup('announcement').filter(s => s.key === 'announcement_bar_text')" :key="item.key">
+                <div class="p-6 flex flex-col sm:flex-row sm:items-start gap-4">
+                  <div class="w-full sm:w-1/3 flex-shrink-0 pt-1">
+                    <label class="block text-sm font-medium text-ink">Teks Pengumuman</label>
+                    <p class="text-xs text-stone mt-0.5">Mendukung emoji ✨🎉</p>
+                  </div>
+                  <div class="flex-1 flex gap-3">
+                    <input type="text" x-model="item.value"
+                      placeholder="cth: Gratis ongkir untuk pembelian ≥ Rp 200.000 🎉"
+                      class="flex-1 px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all placeholder:text-stone/50 bg-cream/50" />
+                    <button @click="saveSetting(item)" :disabled="item.saving"
+                      class="px-4 py-2 min-h-[44px] bg-sage hover:bg-sage-deep text-white text-sm font-medium rounded-xl transition-colors flex-shrink-0 disabled:opacity-50">
+                      <span x-text="item.saving ? '...' : 'Simpan'"></span>
+                    </button>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Warna background -->
+              <template x-for="item in getGroup('announcement').filter(s => s.key === 'announcement_bar_bg_color')" :key="item.key">
+                <div class="p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div class="w-full sm:w-1/3 flex-shrink-0">
+                    <label class="block text-sm font-medium text-ink">Warna Background</label>
+                    <p class="text-xs text-stone mt-0.5">Format hex, contoh: #8FA07E</p>
+                  </div>
+                  <div class="flex-1 flex items-center gap-3">
+                    <input type="color" x-model="item.value"
+                      class="w-10 h-10 rounded-xl border border-border cursor-pointer p-0.5 bg-white" />
+                    <input type="text" x-model="item.value"
+                      placeholder="#8FA07E"
+                      class="flex-1 px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all bg-cream/50 font-mono" />
+                    <button @click="saveSetting(item)" :disabled="item.saving"
+                      class="px-4 py-2 min-h-[44px] bg-sage hover:bg-sage-deep text-white text-sm font-medium rounded-xl transition-colors flex-shrink-0 disabled:opacity-50">
+                      <span x-text="item.saving ? '...' : 'Simpan'"></span>
+                    </button>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Warna teks -->
+              <template x-for="item in getGroup('announcement').filter(s => s.key === 'announcement_bar_text_color')" :key="item.key">
+                <div class="p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div class="w-full sm:w-1/3 flex-shrink-0">
+                    <label class="block text-sm font-medium text-ink">Warna Teks</label>
+                    <p class="text-xs text-stone mt-0.5">Format hex, contoh: #FFFFFF</p>
+                  </div>
+                  <div class="flex-1 flex items-center gap-3">
+                    <input type="color" x-model="item.value"
+                      class="w-10 h-10 rounded-xl border border-border cursor-pointer p-0.5 bg-white" />
+                    <input type="text" x-model="item.value"
+                      placeholder="#FFFFFF"
+                      class="flex-1 px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all bg-cream/50 font-mono" />
+                    <button @click="saveSetting(item)" :disabled="item.saving"
+                      class="px-4 py-2 min-h-[44px] bg-sage hover:bg-sage-deep text-white text-sm font-medium rounded-xl transition-colors flex-shrink-0 disabled:opacity-50">
+                      <span x-text="item.saving ? '...' : 'Simpan'"></span>
+                    </button>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Live preview -->
+              <div class="p-6">
+                <p class="text-xs font-semibold uppercase tracking-wider text-stone mb-3">Preview</p>
+                <div class="rounded-xl overflow-hidden border border-border"
+                     :style="`background-color: ${getGroup('announcement').find(s=>s.key==='announcement_bar_bg_color')?.value || '#8FA07E'};`">
+                  <div class="px-6 py-2.5 flex items-center justify-between gap-3 min-h-[40px]">
+                    <p class="text-sm font-medium flex-1 text-center"
+                       :style="`color: ${getGroup('announcement').find(s=>s.key==='announcement_bar_text_color')?.value || '#FFFFFF'};`"
+                       x-text="getGroup('announcement').find(s=>s.key==='announcement_bar_text')?.value || '— teks pengumuman —'">
+                    </p>
+                    <div class="w-5 h-5 rounded-full opacity-70 flex items-center justify-center"
+                         :style="`color: ${getGroup('announcement').find(s=>s.key==='announcement_bar_text_color')?.value || '#FFFFFF'};`">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+          
+        </div>
+
+      </main>
+
+    </div>
+  </div>
+
+  <!-- ── Modal Form Rekening Bank ───────────────────────────────────────── -->
+  <div
+    x-show="showBankModal"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    @keydown.escape.window="closeBankModal()"
+    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+    style="display:none;">
+    <div class="absolute inset-0 bg-ink/20 backdrop-blur-sm" @click="closeBankModal()"></div>
+    <div
+      x-show="showBankModal"
+      x-transition:enter="transition ease-out duration-200"
+      x-transition:enter-start="opacity-0 translate-y-4 sm:scale-95"
+      x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave="transition ease-in duration-150"
+      x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave-end="opacity-0 translate-y-4 sm:scale-95"
+      class="relative w-full sm:max-w-md bg-white sm:border border-t sm:border-border sm:rounded-2xl rounded-t-2xl overflow-hidden shadow-xl">
+      <!-- Header -->
+      <div class="px-6 pt-5 pb-4 border-b border-border flex items-center justify-between">
+        <div class="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-border sm:hidden"></div>
+        <h3 class="text-base font-semibold text-ink mt-2 sm:mt-0" x-text="editingBank ? 'Edit Rekening' : 'Tambah Rekening'"></h3>
+        <button @click="closeBankModal()" class="w-8 h-8 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <!-- Body -->
+      <form @submit.prevent="saveBankAccount()" class="px-6 py-5 space-y-4">
+        <div class="space-y-1.5">
+          <label class="block text-sm font-medium text-ink">Nama Bank <span class="text-red-500">*</span></label>
+          <input type="text" x-model="bankForm.bank_name" placeholder="cth: BCA, BRI, BNI, Mandiri, BSI..."
+            class="w-full px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all bg-cream/50" required />
+        </div>
+        <div class="space-y-1.5">
+          <label class="block text-sm font-medium text-ink">Nomor Rekening <span class="text-red-500">*</span></label>
+          <input type="text" x-model="bankForm.account_number" placeholder="cth: 1234567890"
+            class="w-full px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all bg-cream/50" required />
+        </div>
+        <div class="space-y-1.5">
+          <label class="block text-sm font-medium text-ink">Nama Pemilik Rekening <span class="text-red-500">*</span></label>
+          <input type="text" x-model="bankForm.account_name" placeholder="cth: Giva Store"
+            class="w-full px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all bg-cream/50" required />
+        </div>
+        <div class="flex items-center justify-between py-2">
+          <div>
+            <p class="text-sm font-medium text-ink">Status Rekening</p>
+            <p class="text-xs text-stone">Rekening nonaktif tidak muncul di kasir</p>
+          </div>
+          <button type="button" @click="bankForm.is_active = !bankForm.is_active"
+            :class="bankForm.is_active ? 'bg-sage' : 'bg-border'"
+            class="relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0">
+            <span :class="bankForm.is_active ? 'translate-x-5' : 'translate-x-0'"
+              class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></span>
+          </button>
+        </div>
+        <div class="space-y-1.5">
+          <label class="block text-sm font-medium text-ink">Urutan Tampil</label>
+          <input type="number" x-model="bankForm.sort_order" placeholder="0" min="0"
+            class="w-full px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all bg-cream/50" />
+          <p class="text-xs text-stone">Angka lebih kecil tampil lebih dulu. Kosongkan untuk urutan default (0).</p>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" @click="closeBankModal()"
+            class="flex-1 py-2.5 rounded-xl bg-sand hover:bg-border text-ink text-sm font-medium transition-colors border border-border">
+            Batal
+          </button>
+          <button type="submit" :disabled="savingBank"
+            class="flex-[2] py-2.5 rounded-xl bg-sage hover:bg-sage-deep text-white text-sm font-semibold transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2">
+            <svg x-show="savingBank" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            <span x-text="savingBank ? 'Menyimpan...' : (editingBank ? 'Simpan Perubahan' : 'Tambah Rekening')"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Modal Konfirmasi Hapus Rekening ─────────────────────────────────── -->
+  <div
+    x-show="showDeleteBankModal"
+    x-transition:enter="transition ease-out duration-150"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-100"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4"
+    style="display:none;">
+    <div class="absolute inset-0 bg-ink/20 backdrop-blur-sm" @click="showDeleteBankModal = false"></div>
+    <div class="relative bg-white rounded-2xl border border-border shadow-xl p-6 w-full max-w-sm">
+      <div class="w-11 h-11 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center mb-4">
+        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+      </div>
+      <h3 class="text-base font-semibold text-ink mb-1">Hapus Rekening?</h3>
+      <p class="text-sm text-stone mb-5">
+        Rekening <span class="font-semibold text-ink" x-text="deletingBank?.bank_name + ' - ' + deletingBank?.account_number"></span> akan dihapus permanen.
+      </p>
+      <div class="flex gap-3">
+        <button @click="showDeleteBankModal = false"
+          class="flex-1 py-2.5 rounded-xl bg-sand hover:bg-border text-ink text-sm font-medium transition-colors border border-border">Batal</button>
+        <button @click="deleteBank()" :disabled="deletingBankLoading"
+          class="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+          <span x-text="deletingBankLoading ? 'Menghapus...' : 'Hapus'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div x-show="alert.show"
+    x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="opacity-0 translate-y-4"
+    x-transition:enter-end="opacity-100 translate-y-0"
+    x-transition:leave="transition ease-in duration-200"
+    x-transition:leave-start="opacity-100 translate-y-0"
+    x-transition:leave-end="opacity-0 translate-y-4"
+    class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border"
+    :class="alert.type === 'success' ? 'bg-sage text-white border-sage-deep' : 'bg-red-500 text-white border-red-600'"
+    style="display: none;">
+    <span class="text-sm font-medium" x-text="alert.message"></span>
+    <button @click="alert.show = false" class="text-white/80 hover:text-white">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+
+  <script type="module" src="/src/admin/settings.js"></script>
+</body>
+</html>

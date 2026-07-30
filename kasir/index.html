@@ -1,0 +1,1507 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kasir — Giva Store</title>
+  <meta name="description" content="Point of Sale (POS) Kasir Giva Store." />
+  <link rel="stylesheet" href="/src/style.css" />
+
+  <style>
+    /* ── Cart badge bounce animation ─────────────────────────────────────────── */
+    @keyframes cart-badge-bounce {
+      0%   { transform: scale(1); }
+      30%  { transform: scale(1.6); }
+      60%  { transform: scale(0.9); }
+      100% { transform: scale(1); }
+    }
+    .cart-badge-bounce {
+      animation: cart-badge-bounce 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+    }
+
+    /* ── Struk thermal printer @media print ───────────────────────────────── */
+    @media print {
+      /* Sembunyikan semua elemen halaman kecuali area struk */
+      body > * { display: none !important; }
+      #struk-print { display: block !important; }
+
+      body {
+        background: white;
+        margin: 0;
+        padding: 0;
+      }
+
+      #struk-print {
+        width: 80mm;
+        max-width: 80mm;
+        margin: 0 auto;
+        padding: 6mm 4mm;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 11px;
+        color: #000;
+        line-height: 1.5;
+      }
+
+      #struk-print .struk-title {
+        font-size: 14px;
+        font-weight: 700;
+        text-align: center;
+        letter-spacing: 1px;
+        margin-bottom: 2px;
+      }
+
+      #struk-print .struk-sub {
+        font-size: 10px;
+        text-align: center;
+        margin-bottom: 4px;
+      }
+
+      #struk-print .struk-divider {
+        border: none;
+        border-top: 1px dashed #000;
+        margin: 5px 0;
+      }
+
+      #struk-print .struk-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 4px;
+        margin-bottom: 2px;
+        font-size: 11px;
+      }
+
+      #struk-print .struk-row .label { flex-shrink: 0; }
+      #struk-print .struk-row .value { text-align: right; white-space: nowrap; }
+
+      #struk-print .struk-item-name {
+        font-size: 11px;
+        margin-bottom: 0;
+      }
+
+      #struk-print .struk-item-variant {
+        font-size: 9px;
+        color: #555;
+        margin-bottom: 2px;
+        padding-left: 4px;
+      }
+
+      #struk-print .struk-item-detail {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        padding-left: 4px;
+        margin-bottom: 3px;
+      }
+
+      #struk-print .struk-total-row {
+        display: flex;
+        justify-content: space-between;
+        font-weight: 700;
+        font-size: 12px;
+        margin-top: 2px;
+      }
+
+      #struk-print .struk-footer {
+        text-align: center;
+        font-size: 10px;
+        margin-top: 8px;
+      }
+    }
+  </style>
+</head>
+
+<body
+  class="bg-cream text-ink min-h-screen font-sans antialiased"
+  x-data="kasirApp"
+  x-init="init()">
+
+  <!-- ── Access Denied Overlay ──────────────────────────────────────────── -->
+  <div
+    x-show="accessError"
+    class="fixed inset-0 z-[100] bg-cream flex items-center justify-center p-6"
+    style="display:none;">
+    <div class="max-w-md w-full bg-white border border-border rounded-2xl p-8 text-center shadow-sm">
+      <div class="w-14 h-14 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center mx-auto mb-5">
+        <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      </div>
+      <h1 class="text-xl font-display font-semibold text-ink mb-2">Akses Ditolak</h1>
+      <p class="text-sm text-stone mb-6" x-text="accessError"></p>
+      <button
+        @click="logout()"
+        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-sage hover:bg-sage-deep text-white text-sm font-medium transition-colors">
+        Keluar & Login Ulang
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Main Layout ────────────────────────────────────────────────────────── -->
+  <div x-show="!accessError" class="flex flex-col lg:flex-row h-screen overflow-hidden" style="display:none;">
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         SHARED HEADER — muncul di semua ukuran layar
+    ════════════════════════════════════════════════════════════════════════ -->
+    <header class="flex-shrink-0 bg-white border-b border-border px-4 lg:px-6 py-3 flex items-center gap-3 lg:hidden">
+      <!-- Back to Admin (mobile) -->
+      <a href="/admin/index.html" class="flex-shrink-0 w-8 h-8 rounded-lg text-stone hover:text-ink hover:bg-cream flex items-center justify-center transition-all" title="Admin Panel">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+      </a>
+      <!-- Brand -->
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <div class="w-8 h-8 rounded-lg bg-sage flex items-center justify-center hidden sm:flex">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 7h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1z" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-ink leading-tight">Giva Store</p>
+          <p class="text-[10px] text-stone leading-tight">Point of Sale</p>
+        </div>
+      </div>
+
+      <!-- Search bar (hanya muncul saat tab Produk) -->
+      <div class="relative flex-1" x-show="activeTab === 'produk'">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone pointer-events-none"
+          fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input id="input-search-produk-mobile" type="search" x-model="searchQuery"
+          placeholder="Cari produk…"
+          class="w-full pl-9 pr-3 py-2 rounded-xl bg-sand border border-border text-ink placeholder-stone text-sm
+                 focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition-all" />
+      </div>
+
+      <!-- Spacer saat bukan tab Produk -->
+      <div class="flex-1" x-show="activeTab !== 'produk'"></div>
+
+      <!-- Staff + logout -->
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <div class="w-7 h-7 rounded-full bg-sage/20 border border-sage/30 flex items-center justify-center text-xs font-semibold text-sage-deep"
+          x-text="staffUser.name ? staffUser.name.charAt(0).toUpperCase() : 'K'"></div>
+        <button id="btn-logout-mobile" @click="logout()" title="Keluar"
+          class="w-8 h-8 rounded-lg text-stone hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-all">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         MOBILE TAB BAR — hanya < 1024px
+    ════════════════════════════════════════════════════════════════════════ -->
+    <nav class="lg:hidden flex-shrink-0 flex bg-white border-b border-border">
+      <!-- Tab: Produk -->
+      <button id="tab-produk"
+        @click="activeTab = 'produk'"
+        :class="activeTab === 'produk'
+          ? 'text-sage-deep border-sage'
+          : 'text-stone border-transparent'"
+        class="flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold border-b-2 transition-all">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        </svg>
+        Produk
+      </button>
+
+      <!-- Tab: Keranjang -->
+      <button id="tab-keranjang"
+        @click="activeTab = 'keranjang'"
+        :class="activeTab === 'keranjang'
+          ? 'text-sage-deep border-sage'
+          : 'text-stone border-transparent'"
+        class="flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold border-b-2 transition-all relative">
+        <div class="relative">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          <span x-show="cartCount > 0" x-text="cartCount"
+            class="cart-badge absolute -top-1.5 -right-2 min-w-[16px] h-4 px-0.5 rounded-full bg-sage text-white text-[9px] font-bold flex items-center justify-center"
+            style="display:none;"></span>
+        </div>
+        Keranjang
+      </button>
+
+      <!-- Tab: Riwayat -->
+      <button id="tab-riwayat"
+        @click="activeTab = 'riwayat'"
+        :class="activeTab === 'riwayat'
+          ? 'text-sage-deep border-sage'
+          : 'text-stone border-transparent'"
+        class="flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold border-b-2 transition-all">
+        <div class="relative">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          <span x-show="transactions.length > 0" x-text="transactions.length"
+            class="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-0.5 rounded-full bg-sage/20 text-sage-deep text-[9px] font-bold flex items-center justify-center"
+            style="display:none;"></span>
+        </div>
+        Riwayat
+      </button>
+    </nav>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         ALERT TOAST (shared, fixed position)
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div
+      x-show="alert.show"
+      x-transition:enter="transition ease-out duration-300"
+      x-transition:enter-start="opacity-0 -translate-y-1"
+      x-transition:enter-end="opacity-100 translate-y-0"
+      x-transition:leave="transition ease-in duration-150"
+      x-transition:leave-start="opacity-100"
+      x-transition:leave-end="opacity-0"
+      :class="{
+        'border-sage/40 bg-sage/8 text-sage-deep': alert.type === 'success',
+        'border-red-300 bg-red-50 text-red-700':   alert.type === 'error',
+        'border-amber-300 bg-amber-50 text-amber-700': alert.type === 'warning',
+      }"
+      class="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-sm w-[calc(100%-2rem)] flex items-start gap-3 px-4 py-3 rounded-xl border text-sm font-medium shadow-lg"
+      style="display:none;">
+      <template x-if="alert.type === 'success'">
+        <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </template>
+      <template x-if="alert.type === 'error'">
+        <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </template>
+      <template x-if="alert.type === 'warning'">
+        <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      </template>
+      <span x-text="alert.message" class="flex-1"></span>
+      <button @click="alert.show = false" class="flex-shrink-0 opacity-50 hover:opacity-80 transition-opacity">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         LEFT PANEL — Produk + Riwayat (desktop 60% | mobile full)
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="flex flex-col w-full lg:w-[60%] border-r border-border bg-cream overflow-hidden
+                lg:flex
+                flex"
+         :class="activeTab === 'keranjang' ? 'hidden lg:flex' : 'flex'">
+
+      <!-- Desktop header (logo + search + user) — hidden on mobile -->
+      <header class="hidden lg:flex flex-shrink-0 bg-white border-b border-border px-6 py-3.5 items-center gap-3">
+        <!-- Back to admin (desktop) -->
+        <a href="/admin/index.html" class="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-stone hover:text-ink hover:bg-cream border border-transparent hover:border-border transition-all mr-2">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+          Admin Panel
+        </a>
+        <div class="flex items-center gap-2.5 flex-shrink-0">
+          <div class="w-8 h-8 rounded-lg bg-sage flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 7h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1z" />
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-ink leading-tight">Giva Store</p>
+            <p class="text-[10px] text-stone leading-tight">Point of Sale</p>
+          </div>
+        </div>
+        <div class="relative flex-1">
+          <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone pointer-events-none"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input id="input-search-produk" type="search" x-model="searchQuery"
+            placeholder="Cari nama atau SKU produk…"
+            class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-sand border border-border text-ink placeholder-stone text-sm
+                   focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 hover:border-stone/50 transition-all" />
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0 border-l border-border pl-3">
+          <div class="w-7 h-7 rounded-full bg-sage/20 border border-sage/30 flex items-center justify-center text-xs font-semibold text-sage-deep"
+            x-text="staffUser.name ? staffUser.name.charAt(0).toUpperCase() : 'K'"></div>
+          <div class="hidden md:block min-w-0 max-w-[120px]">
+            <p class="text-xs font-medium text-ink truncate" x-text="staffUser?.name || 'Loading...'"></p>
+            <p class="text-[10px] text-stone truncate capitalize" x-text="staffRole ?? ''"></p>
+          </div>
+          <button id="btn-logout" @click="logout()" title="Keluar"
+            class="w-8 h-8 rounded-lg text-stone hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-all">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Desktop sub-tab bar: Produk | Riwayat Hari Ini -->
+      <div class="hidden lg:flex flex-shrink-0 border-b border-border bg-white">
+        <button @click="activeTab = 'produk'"
+          :class="activeTab === 'produk' ? 'text-sage-deep border-sage' : 'text-stone border-transparent hover:text-ink'"
+          class="flex-1 py-2.5 text-sm font-semibold border-b-2 transition-all flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+          </svg>
+          Produk
+        </button>
+        <button @click="activeTab = 'riwayat'"
+          :class="activeTab === 'riwayat' ? 'text-sage-deep border-sage' : 'text-stone border-transparent hover:text-ink'"
+          class="flex-1 py-2.5 text-sm font-semibold border-b-2 transition-all flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          Riwayat Hari Ini
+          <span x-show="transactions.length > 0" x-text="transactions.length"
+            class="min-w-[18px] h-[18px] px-1 rounded-full bg-sage/15 text-sage-deep text-[10px] font-bold flex items-center justify-center"
+            style="display:none;"></span>
+        </button>
+      </div>
+
+      <!-- ── PANEL PRODUK ──────────────────────────────────────────────────── -->
+      <div x-show="activeTab === 'produk'" class="flex-1 overflow-y-auto p-4 lg:p-5">
+
+        <!-- Loading skeleton -->
+        <div x-show="loading" class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+          <template x-for="i in 12" :key="i">
+            <div class="rounded-2xl bg-sand animate-pulse h-40"></div>
+          </template>
+        </div>
+
+        <!-- Empty state -->
+        <div x-show="!loading && products.length === 0"
+          class="flex flex-col items-center justify-center py-24 text-center">
+          <div class="w-14 h-14 rounded-2xl bg-sand border border-border flex items-center justify-center mb-4">
+            <svg class="w-7 h-7 text-stone" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" />
+            </svg>
+          </div>
+          <p class="font-display font-semibold text-ink text-lg mb-1">Tidak ada produk tersedia</p>
+          <p class="text-sm text-stone">Semua produk habis stok atau belum ada produk aktif.</p>
+        </div>
+
+        <!-- No search results -->
+        <div x-show="!loading && products.length > 0 && filteredProducts.length === 0"
+          class="flex flex-col items-center justify-center py-16 text-center">
+          <svg class="w-10 h-10 text-stone mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <p class="text-sm font-medium text-ink mb-1">Produk tidak ditemukan</p>
+          <p class="text-xs text-stone">Coba kata kunci lain.</p>
+        </div>
+
+        <!-- Stock filter bar -->
+        <div class="mb-3 flex items-center gap-2">
+          <span class="text-[11px] text-stone font-medium flex-shrink-0">Tampilkan:</span>
+          <div class="flex rounded-xl border border-border bg-white overflow-hidden">
+            <button @click="stockFilter = 'all'"
+              :class="stockFilter === 'all' ? 'bg-sage text-white' : 'text-stone hover:text-ink hover:bg-sand'"
+              class="px-3 py-1.5 text-[11px] font-semibold transition-all">Semua</button>
+            <button @click="stockFilter = 'available'"
+              :class="stockFilter === 'available' ? 'bg-sage text-white' : 'text-stone hover:text-ink hover:bg-sand'"
+              class="px-3 py-1.5 text-[11px] font-semibold transition-all border-l border-border">Stok Tersedia</button>
+            <button @click="stockFilter = 'empty'"
+              :class="stockFilter === 'empty' ? 'bg-stone text-white' : 'text-stone hover:text-ink hover:bg-sand'"
+              class="px-3 py-1.5 text-[11px] font-semibold transition-all border-l border-border">Stok Habis</button>
+          </div>
+        </div>
+
+        <!-- Product cards grid -->
+        <div x-show="!loading && filteredProducts.length > 0"
+          class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+          <template x-for="prod in filteredProducts" :key="prod.id">
+            <button
+              :id="'btn-produk-' + prod.id"
+              @click="clickProduct(prod)"
+              class="group relative bg-white border border-border rounded-2xl p-4 text-left
+                     hover:border-sage/50 hover:shadow-md hover:shadow-sage/8 hover:-translate-y-0.5
+                     active:translate-y-0 active:shadow-none
+                     focus:outline-none focus:ring-2 focus:ring-sage/40
+                     transition-all duration-150 cursor-pointer overflow-hidden"
+              :class="prod.total_stock === 0 ? 'opacity-60' : ''">
+              <div class="absolute inset-0 bg-sage/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl pointer-events-none"></div>
+              <div class="mb-3 aspect-square w-full rounded-xl overflow-hidden bg-sand border border-border/60 flex items-center justify-center">
+                <template x-if="prod.image_url">
+                  <img :src="prod.image_url" :alt="prod.name" class="w-full h-full object-cover"
+                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'" />
+                </template>
+                <div :style="prod.image_url ? 'display:none;' : ''"
+                  class="w-full h-full flex items-center justify-center">
+                  <svg class="w-8 h-8 text-stone/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+              <p class="text-sm font-medium text-ink leading-snug line-clamp-2 mb-1" x-text="prod.name"></p>
+              <p class="text-base font-semibold text-sage-deep" x-text="formatPrice(prod.sell_price)"></p>
+
+              <!-- Color dots — tampil kalau punya varian -->
+              <div x-show="prod.hasVariants" class="mt-2 flex items-center gap-1 flex-wrap">
+                <template x-for="v in prod.variants.filter(v => v.stock > 0).slice(0,6)" :key="v.id">
+                  <div class="w-4 h-4 rounded-full border border-white/80 shadow-sm flex-shrink-0"
+                    :style="'background-color:' + v.hex_code"
+                    :title="v.color_name + ' (stok: ' + v.stock + ')'">
+                  </div>
+                </template>
+                <!-- +N kalau lebih dari 6 varian -->
+                <span x-show="prod.variants.filter(v => v.stock > 0).length > 6"
+                  class="text-[9px] text-stone font-semibold"
+                  x-text="'+' + (prod.variants.filter(v => v.stock > 0).length - 6)">
+                </span>
+              </div>
+
+              <!-- Stok & cart qty badge — hanya untuk produk tanpa varian -->
+              <div x-show="!prod.hasVariants" class="mt-2 flex items-center justify-between">
+                <span class="text-[10px] text-stone">
+                  Stok: <span class="font-semibold text-ink" x-text="prod.total_stock"></span>
+                </span>
+                <span x-show="cart.find(i => i.id === prod.id && !i.variant_id)"
+                  class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-sage text-white text-[10px] font-bold"
+                  x-text="(cart.find(i => i.id === prod.id && !i.variant_id) || {}).qty ?? ''"
+                  style="display:none;"></span>
+              </div>
+
+              <!-- Stok habis badge -->
+              <div x-show="prod.total_stock === 0"
+                class="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/70">
+                <span class="px-2 py-1 rounded-lg bg-stone/10 text-stone text-[10px] font-semibold border border-stone/20">Habis</span>
+              </div>
+
+              <div x-show="prod.total_stock > 0"
+                class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                <div class="absolute bottom-3 right-3 w-7 h-7 rounded-full bg-sage text-white flex items-center justify-center shadow-md">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+              </div>
+            </button>
+          </template>
+        </div>
+
+        <p x-show="!loading && filteredProducts.length > 0"
+          class="text-xs text-stone text-center mt-5 pb-2">
+          <span x-text="filteredProducts.length"></span> produk tersedia
+        </p>
+      </div>
+      <!-- END panel produk -->
+
+      <!-- ── PANEL RIWAYAT ──────────────────────────────────────────────── -->
+      <div x-show="activeTab === 'riwayat'" class="flex-1 flex flex-col overflow-hidden bg-cream">
+
+        <!-- Omzet card + refresh -->
+        <div class="flex-shrink-0 px-4 py-3 flex items-center gap-3">
+          <div class="flex-1 bg-white border border-border rounded-xl px-4 py-3 flex items-center justify-between">
+            <div>
+              <p class="text-[10px] text-stone uppercase tracking-widest font-semibold">Omzet Hari Ini</p>
+              <p class="text-xl font-display font-semibold text-ink mt-0.5" x-text="formatPrice(todayOmzet)"></p>
+            </div>
+            <div class="text-right">
+              <p class="text-xs text-stone" x-text="transactions.length + ' transaksi'"></p>
+              <p class="text-[10px] text-stone/70 mt-0.5">channel offline</p>
+            </div>
+          </div>
+          <button id="btn-refresh-riwayat" @click="fetchTransactions()" :disabled="loadingTrx"
+            class="w-10 h-10 rounded-xl border border-border bg-white text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all disabled:opacity-40 flex-shrink-0">
+            <svg class="w-4 h-4" :class="loadingTrx ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Transaction list -->
+        <div class="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+          <template x-if="loadingTrx">
+            <div class="space-y-2">
+              <template x-for="i in 5" :key="i">
+                <div class="h-16 rounded-xl bg-sand animate-pulse"></div>
+              </template>
+            </div>
+          </template>
+
+          <div x-show="!loadingTrx && transactions.length === 0"
+            class="flex flex-col items-center justify-center py-16 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-sand border border-border flex items-center justify-center mb-3">
+              <svg class="w-6 h-6 text-stone/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <p class="text-sm font-medium text-ink mb-1">Belum ada transaksi hari ini</p>
+            <p class="text-xs text-stone">Transaksi yang berhasil akan muncul di sini.</p>
+          </div>
+
+          <template x-if="!loadingTrx">
+            <div class="space-y-2">
+              <template x-for="trx in transactions" :key="trx.id">
+                <button :id="'btn-trx-' + trx.id" @click="openTrxDetail(trx)"
+                  class="w-full bg-white border border-border rounded-xl px-4 py-3 flex items-center gap-3
+                         hover:border-sage/40 hover:shadow-sm transition-all text-left group">
+                  <div class="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center"
+                    :class="trx.payment_status === 'paid' ? 'bg-sage/10 border border-sage/25' : 'bg-amber-50 border border-amber-200'">
+                    <svg class="w-4 h-4" :class="trx.payment_status === 'paid' ? 'text-sage' : 'text-amber-500'"
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <p class="text-sm font-semibold text-ink font-mono"
+                        x-text="'#' + String(trx.id).substring(0, 8).toUpperCase()"></p>
+                      <span
+                        :class="trx.payment_status === 'paid'
+                          ? 'bg-sage/10 text-sage-deep border-sage/25'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'"
+                        class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold border"
+                        x-text="statusLabel(trx.payment_status)">
+                      </span>
+                    </div>
+                    <p class="text-xs text-stone mt-0.5">
+                      <span x-text="trx.jam"></span>
+                      <span class="mx-1 opacity-40">&middot;</span>
+                      <span x-text="methodLabel(trx.payMethod)"></span>
+                    </p>
+                  </div>
+                  <div class="text-right flex-shrink-0">
+                    <p class="text-sm font-semibold text-ink" x-text="formatPrice(trx.total_amount)"></p>
+                    <svg class="w-3.5 h-3.5 text-stone/40 ml-auto mt-1 group-hover:text-sage transition-colors"
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- END panel riwayat -->
+
+    </div>
+    <!-- END left panel -->
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         RIGHT PANEL — Keranjang (desktop 40% | mobile full saat tab keranjang)
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="flex flex-col w-full lg:w-[40%] bg-white overflow-hidden"
+         :class="activeTab === 'keranjang' ? 'flex' : 'hidden lg:flex'">
+
+      <!-- Keranjang header -->
+      <div class="flex-shrink-0 px-5 py-4 border-b border-border flex items-center justify-between bg-white">
+        <div class="flex items-center gap-2.5">
+          <h2 class="text-base font-semibold text-ink">Keranjang</h2>
+          <span x-show="cart.length > 0" x-text="cartCount + ' item'"
+            class="inline-flex items-center px-2 py-0.5 rounded-full bg-sage/10 text-sage-deep text-xs font-semibold border border-sage/25"
+            style="display:none;"></span>
+        </div>
+        <button id="btn-kosongkan" @click="clearCart()" x-show="cart.length > 0"
+          class="text-xs text-stone hover:text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-all border border-transparent hover:border-red-200"
+          style="display:none;">
+          Kosongkan
+        </button>
+      </div>
+
+      <!-- Cart items — scrollable -->
+      <div class="flex-1 overflow-y-auto">
+        <div x-show="cart.length === 0"
+          class="flex flex-col items-center justify-center h-full py-16 text-center px-6">
+          <div class="w-16 h-16 rounded-2xl bg-sand border border-border flex items-center justify-center mb-4">
+            <svg class="w-8 h-8 text-stone/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+          <p class="font-display font-semibold text-ink mb-1">Keranjang kosong</p>
+          <p class="text-xs text-stone">Pilih produk di tab Produk untuk mulai bertransaksi.</p>
+        </div>
+
+        <div x-show="cart.length > 0" class="divide-y divide-border">
+          <template x-for="item in cart" :key="item.cartKey">
+            <div class="px-5 py-4 flex items-start gap-3 hover:bg-cream/60 transition-colors group">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-ink leading-snug" x-text="item.name"></p>
+                <!-- Warna varian: bulatan + nama -->
+                <div x-show="item.color_name" class="flex items-center gap-1.5 mt-0.5">
+                  <div class="w-3 h-3 rounded-full flex-shrink-0 ring-1 ring-black/10"
+                    :style="'background-color:' + (item.color_hex || '#e5e7eb')"></div>
+                  <p class="text-xs text-stone" x-text="item.color_name"></p>
+                </div>
+                <p class="text-xs text-stone mt-0.5" x-text="formatPrice(item.sell_price)"></p>
+              </div>
+              <div class="flex items-center gap-1.5 flex-shrink-0">
+                <button :id="'btn-dec-' + item.id" @click="decrementQty(item)"
+                  class="w-7 h-7 rounded-lg border border-border bg-sand text-stone hover:bg-border hover:text-ink flex items-center justify-center transition-colors">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4" />
+                  </svg>
+                </button>
+                <input type="number" :value="item.qty" @change="setQty(item, $event.target.value)"
+                  @focus="$event.target.select()" min="1" :max="item.stock"
+                  class="w-10 h-7 text-center text-sm font-semibold text-ink border border-border rounded-lg bg-white
+                         focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 [appearance:textfield]
+                         [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                <button :id="'btn-inc-' + item.id" @click="incrementQty(item)"
+                  class="w-7 h-7 rounded-lg border border-border bg-sand text-stone hover:bg-sage/10 hover:text-sage-deep hover:border-sage/30 flex items-center justify-center transition-colors">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </div>
+              <div class="flex-shrink-0 text-right min-w-[80px]">
+                <p class="text-sm font-semibold text-ink" x-text="formatPrice(item.sell_price * item.qty)"></p>
+              </div>
+              <button :id="'btn-hapus-' + item.id" @click="removeFromCart(item)"
+                class="flex-shrink-0 w-7 h-7 rounded-lg text-stone/50 hover:text-red-500 hover:bg-red-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Cart footer — total + pay -->
+      <div class="flex-shrink-0 border-t border-border bg-white">
+        <div class="px-5 py-4 flex items-center justify-between">
+          <div>
+            <p class="text-xs text-stone uppercase tracking-wider font-semibold">Total</p>
+            <p class="text-2xl font-display font-semibold text-ink mt-0.5" x-text="formatPrice(cartTotal)"></p>
+          </div>
+          <div class="text-right">
+            <p class="text-xs text-stone" x-show="cart.length > 0" x-text="cartCount + ' item'" style="display:none;"></p>
+          </div>
+        </div>
+        <div class="px-5 pb-5">
+          <button id="btn-bayar" @click="openPayModal()" :disabled="cart.length === 0"
+            class="w-full py-3.5 rounded-xl bg-sage hover:bg-sage-deep disabled:bg-border disabled:text-stone
+                   text-white font-semibold text-base transition-colors disabled:cursor-not-allowed
+                   flex items-center justify-center gap-2.5 shadow-sm">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            Bayar
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- END right panel -->
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       MODAL PILIH WARNA
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div
+    x-show="showVariantModal"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    @keydown.escape.window="closeVariantModal()"
+    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+    style="display:none;">
+
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-ink/20 backdrop-blur-sm" @click="closeVariantModal()"></div>
+
+    <!-- Modal panel -->
+    <div
+      x-show="showVariantModal"
+      x-transition:enter="transition ease-out duration-250"
+      x-transition:enter-start="opacity-0 translate-y-4 sm:scale-95 sm:translate-y-0"
+      x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave="transition ease-in duration-150"
+      x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave-end="opacity-0 translate-y-4 sm:scale-95 sm:translate-y-0"
+      class="relative w-full sm:max-w-xs bg-white sm:border border-t sm:border-border sm:rounded-2xl
+             rounded-t-2xl max-h-[80dvh] flex flex-col overflow-hidden shadow-xl">
+
+      <!-- Drag handle (mobile) -->
+      <div class="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-border sm:hidden"></div>
+
+      <!-- Header -->
+      <div class="px-5 pt-6 pb-4 border-b border-border flex items-center justify-between flex-shrink-0">
+        <div>
+          <p class="text-[11px] text-stone uppercase tracking-widest font-semibold mb-0.5">Pilih Warna</p>
+          <h3 class="text-base font-semibold text-ink leading-snug"
+            x-text="variantModalProduct?.name ?? ''"></h3>
+        </div>
+        <button @click="closeVariantModal()"
+          class="w-9 h-9 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all flex-shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Color list: semua varian aktif; stok 0 ditampilkan greyed out -->
+      <div class="overflow-y-auto flex-1 p-5 grid grid-cols-3 gap-3">
+        <template x-for="v in variantModalVariants" :key="v.id">
+          <button
+            :id="'btn-variant-' + v.id"
+            @click="v.stock > 0 ? addToCartWithVariant(v) : null"
+            :disabled="v.stock === 0"
+            :class="v.stock > 0
+              ? 'hover:border-sage/50 hover:bg-sage/5 hover:shadow-sm active:scale-[0.98] cursor-pointer'
+              : 'opacity-50 cursor-not-allowed bg-stone/5'"
+            class="flex flex-col items-center justify-center p-3 rounded-xl border border-border bg-white transition-all text-center group relative">
+
+            <!-- Label Habis -->
+            <div x-show="v.stock === 0"
+              class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/90 px-1.5 py-0.5 rounded text-[10px] font-bold text-red-600 shadow-sm z-10 whitespace-nowrap pointer-events-none">
+              Habis
+            </div>
+
+            <!-- Color swatch -->
+            <div class="w-[40px] h-[40px] rounded-lg border border-border/60 shadow-sm flex-shrink-0 mb-2 relative"
+              :style="'background-color:' + (v.hex_code || '#e5e7eb')">
+            </div>
+
+            <!-- Info -->
+            <p class="text-xs font-semibold text-ink leading-tight mb-0.5 line-clamp-1" x-text="v.color_name"></p>
+            <p class="text-[10px]"
+              :class="v.stock > 0 ? 'text-stone' : 'text-stone/60'">
+              <span x-show="v.stock > 0" x-text="v.stock + ' pcs'"></span>
+              <span x-show="v.stock === 0">—</span>
+            </p>
+          </button>
+        </template>
+      </div>
+
+      <!-- Tombol Batal -->
+      <div class="px-5 pt-3 pb-5 border-t border-border bg-white flex-shrink-0">
+        <button type="button" @click="closeVariantModal()"
+          class="w-full py-2.5 rounded-xl border border-border bg-sand hover:bg-border text-ink text-sm font-medium transition-colors">
+          Batal
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       MODAL PEMBAYARAN
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div
+    x-show="showPayModal"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    @keydown.escape.window="closePayModal()"
+    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+    style="display:none;">
+
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-ink/20 backdrop-blur-sm" @click="closePayModal()"></div>
+
+    <!-- Modal panel -->
+    <div
+      x-show="showPayModal"
+      x-transition:enter="transition ease-out duration-250"
+      x-transition:enter-start="opacity-0 translate-y-4 sm:scale-95 sm:translate-y-0"
+      x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave="transition ease-in duration-150"
+      x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave-end="opacity-0 translate-y-4 sm:scale-95 sm:translate-y-0"
+      class="relative w-full sm:max-w-lg bg-white sm:border border-t sm:border-border sm:rounded-2xl
+             rounded-t-2xl max-h-[92dvh] flex flex-col overflow-hidden shadow-xl">
+
+      <!-- Modal header -->
+      <div class="px-5 sm:px-6 pt-5 pb-4 border-b border-border flex items-center justify-between flex-shrink-0">
+        <div class="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-border sm:hidden"></div>
+        <div class="mt-2 sm:mt-0 flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-sage/10 border border-sage/25 flex items-center justify-center">
+            <svg class="w-4.5 h-4.5 text-sage-deep" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-base font-display font-semibold text-ink">Pembayaran</h2>
+            <p class="text-xs text-stone" x-text="'Metode: ' + methodLabel(payMethod)"></p>
+          </div>
+        </div>
+        <button
+          id="btn-close-pay-modal"
+          @click="closePayModal()"
+          :disabled="paying"
+          class="w-9 h-9 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all disabled:opacity-40">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal body -->
+      <div class="px-5 sm:px-6 py-5 space-y-5 overflow-y-auto flex-1">
+
+        <!-- Order summary -->
+        <div class="bg-sand border border-border rounded-xl overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-border bg-sand/80">
+            <p class="text-[10px] font-semibold uppercase tracking-widest text-stone">Ringkasan Pesanan</p>
+          </div>
+          <div class="divide-y divide-border/60 max-h-36 overflow-y-auto">
+            <template x-for="item in cart" :key="item.cartKey">
+              <div class="px-4 py-2.5 flex items-center justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm text-ink truncate" x-text="item.name"></p>
+                  <p class="text-xs text-stone" x-text="formatPrice(item.sell_price) + ' × ' + item.qty"></p>
+                </div>
+                <p class="text-sm font-semibold text-ink flex-shrink-0" x-text="formatPrice(item.sell_price * item.qty)"></p>
+              </div>
+            </template>
+          </div>
+          <div class="px-4 py-3 border-t border-border flex items-center justify-between bg-cream/60">
+            <p class="text-sm font-semibold text-ink">Total</p>
+            <p class="text-xl font-display font-bold text-ink" x-text="formatPrice(cartTotal)"></p>
+          </div>
+        </div>
+
+        <!-- ── Tab Metode Pembayaran ─────────────────────────── -->
+        <div>
+          <p class="text-[10px] font-semibold uppercase tracking-widest text-stone mb-2">Metode Pembayaran</p>
+          <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
+            <template x-for="m in [
+              {key:'cash',     icon:'💵', label:'Tunai'},
+              {key:'qris',     icon:'📱', label:'QRIS'},
+              {key:'transfer', icon:'🏦', label:'Transfer'},
+              {key:'gopay',    icon:'💚', label:'GoPay'},
+              {key:'ovo',      icon:'💜', label:'OVO'},
+              {key:'dana',     icon:'💙', label:'Dana'},
+              {key:'debit',    icon:'💳', label:'Debit EDC'}
+            ]" :key="m.key">
+              <button
+                type="button"
+                @click="selectPayMethod(m.key)"
+                :disabled="paying"
+                :class="payMethod === m.key
+                  ? 'bg-sage text-white border-sage shadow-sm'
+                  : 'bg-white text-stone border-border hover:border-sage/50 hover:text-ink'"
+                class="flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border text-xs font-medium transition-all min-w-[60px] disabled:opacity-50">
+                <span class="text-base leading-none" x-text="m.icon"></span>
+                <span x-text="m.label"></span>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- ── Section: Tunai ────────────────────────────────── -->
+        <div x-show="payMethod === 'cash'" class="space-y-4" style="display:none;">
+          <div class="space-y-1.5">
+            <label for="input-nominal" class="block text-sm font-medium text-ink">
+              Nominal Bayar (Rp) <span class="text-red-500">*</span>
+            </label>
+            <input
+              id="input-nominal"
+              type="number"
+              x-model="nominalBayar"
+              min="0"
+              step="1000"
+              placeholder="0"
+              :disabled="paying"
+              class="w-full px-4 py-3 rounded-xl bg-cream border text-ink placeholder-stone text-lg font-semibold
+                     focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60
+                     hover:border-stone/50 transition-all disabled:opacity-50
+                     [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              :class="nominalBayar && Number(nominalBayar) < cartTotal
+                ? 'border-red-400 focus:ring-red-300/40'
+                : 'border-border'" />
+            <p x-show="nominalBayar && Number(nominalBayar) < cartTotal" class="text-xs text-red-500" style="display:none;">
+              Nominal kurang dari total harga.
+            </p>
+          </div>
+          <div
+            x-show="nominalBayar && Number(nominalBayar) > 0"
+            class="flex items-center justify-between px-4 py-3 rounded-xl border transition-all"
+            :class="kembalian >= 0 ? 'bg-sage/8 border-sage/25' : 'bg-red-50 border-red-200'"
+            style="display:none;">
+            <p class="text-sm font-medium" :class="kembalian >= 0 ? 'text-sage-deep' : 'text-red-700'">Kembalian</p>
+            <p class="text-lg font-display font-semibold" :class="kembalian >= 0 ? 'text-sage-deep' : 'text-red-700'"
+              x-text="kembalian >= 0 ? formatPrice(kembalian) : '- ' + formatPrice(Math.abs(kembalian))"></p>
+          </div>
+        </div>
+
+        <!-- ── Section: QRIS ─────────────────────────────────── -->
+        <div x-show="payMethod === 'qris'" class="space-y-4" style="display:none;">
+          <div class="bg-sand border border-border rounded-xl p-4 flex flex-col items-center gap-3">
+            <template x-if="settingsMap['payment_qris_image_url']">
+              <img :src="settingsMap['payment_qris_image_url']" alt="QR Code Pembayaran"
+                class="w-44 h-44 object-contain rounded-lg border border-border bg-white p-1" />
+            </template>
+            <template x-if="!settingsMap['payment_qris_image_url']">
+              <div class="w-44 h-44 rounded-lg border-2 border-dashed border-border flex items-center justify-center bg-white">
+                <p class="text-xs text-stone text-center px-4">Gambar QRIS belum diupload. Upload di menu Pengaturan.</p>
+              </div>
+            </template>
+            <div class="text-center">
+              <p class="text-xs text-stone">Atas nama</p>
+              <p class="text-sm font-semibold text-ink" x-text="settingsMap['qris_pemilik'] || 'Giva Store'"></p>
+            </div>
+            <div class="w-full bg-cream/80 border border-border rounded-lg px-4 py-2.5 flex items-center justify-between">
+              <p class="text-xs text-stone">Total bayar</p>
+              <p class="text-base font-display font-bold text-ink" x-text="formatPrice(cartTotal)"></p>
+            </div>
+          </div>
+          <!-- Upload bukti -->
+          <div x-data class="space-y-2">
+            <p class="text-sm font-medium text-ink">Bukti Pembayaran <span class="text-red-500">*</span></p>
+            <label class="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-xl cursor-pointer transition-all"
+              :class="proofFile ? 'border-sage bg-sage/5' : 'border-border bg-sand hover:border-sage/50 hover:bg-sage/5'">
+              <template x-if="!proofFile">
+                <div class="flex flex-col items-center gap-1.5">
+                  <svg class="w-7 h-7 text-stone" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p class="text-xs text-stone">Klik untuk upload foto/screenshot bukti bayar</p>
+                  <p class="text-[10px] text-stone/60">JPG, PNG, WebP — maks. 5 MB</p>
+                </div>
+              </template>
+              <template x-if="proofFile">
+                <div class="flex items-center gap-3 px-4 w-full">
+                  <img :src="proofPreviewUrl" class="w-16 h-16 object-cover rounded-lg border border-sage/30 flex-shrink-0" />
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-medium text-ink truncate" x-text="proofFile.name"></p>
+                    <p class="text-[10px] text-stone mt-0.5" x-text="(proofFile.size / 1024).toFixed(0) + ' KB'"></p>
+                    <button type="button" @click.stop="clearProof(); $el.closest('label').nextElementSibling?.querySelector('input')?.value && ($el.closest('.space-y-2').querySelector('input[type=file]').value = '')"
+                      class="text-[10px] text-red-500 hover:text-red-700 mt-1">Hapus</button>
+                  </div>
+                </div>
+              </template>
+              <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden"
+                @change="handleProofFile($event)" :disabled="paying" />
+            </label>
+            <p x-show="proofError" class="text-xs text-red-500" x-text="proofError" style="display:none;"></p>
+          </div>
+        </div>
+
+        <!-- ── Section: Transfer Bank ────────────────────────── -->
+        <div x-show="payMethod === 'transfer'" class="space-y-4" style="display:none;">
+          <!-- Empty state: belum ada rekening aktif -->
+          <div x-show="bankAccounts.length === 0"
+            class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+            Belum ada rekening bank aktif. Atur di menu Pengaturan.
+          </div>
+
+          <!-- List pilihan rekening (bukan dropdown) -->
+          <div x-show="bankAccounts.length > 0" class="space-y-2">
+            <p class="text-sm font-medium text-ink">Pilih Rekening Tujuan</p>
+            <div class="space-y-2 max-h-52 overflow-y-auto">
+              <template x-for="b in bankAccounts" :key="b.id">
+                <button type="button"
+                  @click="selectedBankId = b.id"
+                  :disabled="paying"
+                  :class="selectedBankId === b.id
+                    ? 'border-sage bg-sage/10 ring-1 ring-sage'
+                    : 'border-border bg-white hover:border-sage/50 hover:bg-sand'"
+                  class="w-full text-left rounded-xl border px-4 py-3 transition-all disabled:opacity-50 min-h-[44px]">
+                  <p class="text-sm font-bold text-ink" x-text="b.bank_name"></p>
+                  <p class="text-sm font-mono text-ink mt-0.5" x-text="b.account_number"></p>
+                  <p class="text-xs text-stone mt-0.5" x-text="'a/n ' + (b.account_name || '—')"></p>
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <!-- Detail rekening terpilih + total transfer -->
+          <div x-show="selectedBankInfo" class="bg-sand border border-border rounded-xl p-4 space-y-3" style="display:none;">
+            <p class="text-xs font-medium text-stone uppercase tracking-wide">Transfer ke</p>
+            <div class="space-y-1">
+              <p class="text-base font-bold text-ink" x-text="selectedBankInfo?.bank_name"></p>
+              <p class="text-sm font-mono font-semibold text-ink" x-text="selectedBankInfo?.account_number"></p>
+              <p class="text-sm text-stone" x-text="'a/n ' + (selectedBankInfo?.account_name || '—')"></p>
+            </div>
+            <div class="border-t border-border pt-3">
+              <p class="text-xs text-stone mb-1">Total yang harus ditransfer</p>
+              <p class="text-2xl font-display font-bold text-ink tracking-tight" x-text="formatPrice(cartTotal)"></p>
+            </div>
+          </div>
+
+          <!-- Upload bukti (wajib) -->
+          <div x-show="bankAccounts.length > 0" class="space-y-2">
+            <p class="text-sm font-medium text-ink">Bukti Transfer <span class="text-red-500">*</span></p>
+            <label class="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-xl cursor-pointer transition-all"
+              :class="proofFile ? 'border-sage bg-sage/5' : 'border-border bg-sand hover:border-sage/50 hover:bg-sage/5'">
+              <template x-if="!proofFile">
+                <div class="flex flex-col items-center gap-1.5">
+                  <svg class="w-7 h-7 text-stone" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p class="text-xs text-stone">Upload foto/screenshot bukti transfer</p>
+                  <p class="text-[10px] text-stone/60">JPG, PNG, WebP — maks. 5 MB</p>
+                </div>
+              </template>
+              <template x-if="proofFile">
+                <div class="flex items-center gap-3 px-4 w-full">
+                  <img :src="proofPreviewUrl" class="w-16 h-16 object-cover rounded-lg border border-sage/30 flex-shrink-0" />
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-medium text-ink truncate" x-text="proofFile.name"></p>
+                    <p class="text-[10px] text-stone mt-0.5" x-text="(proofFile.size / 1024).toFixed(0) + ' KB'"></p>
+                    <button type="button" @click.stop="clearProof()" class="text-[10px] text-red-500 hover:text-red-700 mt-1">Hapus</button>
+                  </div>
+                </div>
+              </template>
+              <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden"
+                @change="handleProofFile($event)" :disabled="paying" />
+            </label>
+            <p x-show="proofError" class="text-xs text-red-500" x-text="proofError" style="display:none;"></p>
+          </div>
+
+        </div>
+
+        <!-- ── Section: GoPay / OVO / Dana ───────────────────── -->
+        <div x-show="['gopay','ovo','dana'].includes(payMethod)" class="space-y-4" style="display:none;">
+          <div class="bg-sand border border-border rounded-xl p-4 space-y-2">
+            <div class="flex items-center justify-between">
+              <p class="text-xs text-stone">Metode</p>
+              <p class="text-sm font-semibold text-ink" x-text="ewalletInfo.label"></p>
+            </div>
+            <div class="flex items-center justify-between">
+              <p class="text-xs text-stone">Nomor Tujuan</p>
+              <p class="text-sm font-mono font-semibold text-ink" x-text="ewalletInfo.nomor"></p>
+            </div>
+            <div class="border-t border-border pt-2 flex items-center justify-between">
+              <p class="text-xs text-stone">Jumlah Bayar</p>
+              <p class="text-base font-display font-bold text-ink" x-text="formatPrice(cartTotal)"></p>
+            </div>
+          </div>
+          <!-- Upload bukti -->
+          <div class="space-y-2">
+            <p class="text-sm font-medium text-ink">Bukti Pembayaran <span class="text-red-500">*</span></p>
+            <label class="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-xl cursor-pointer transition-all"
+              :class="proofFile ? 'border-sage bg-sage/5' : 'border-border bg-sand hover:border-sage/50 hover:bg-sage/5'">
+              <template x-if="!proofFile">
+                <div class="flex flex-col items-center gap-1.5">
+                  <svg class="w-7 h-7 text-stone" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p class="text-xs text-stone">Upload screenshot bukti pembayaran</p>
+                  <p class="text-[10px] text-stone/60">JPG, PNG, WebP — maks. 5 MB</p>
+                </div>
+              </template>
+              <template x-if="proofFile">
+                <div class="flex items-center gap-3 px-4 w-full">
+                  <img :src="proofPreviewUrl" class="w-16 h-16 object-cover rounded-lg border border-sage/30 flex-shrink-0" />
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-medium text-ink truncate" x-text="proofFile.name"></p>
+                    <p class="text-[10px] text-stone mt-0.5" x-text="(proofFile.size / 1024).toFixed(0) + ' KB'"></p>
+                    <button type="button" @click.stop="clearProof()" class="text-[10px] text-red-500 hover:text-red-700 mt-1">Hapus</button>
+                  </div>
+                </div>
+              </template>
+              <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden"
+                @change="handleProofFile($event)" :disabled="paying" />
+            </label>
+            <p x-show="proofError" class="text-xs text-red-500" x-text="proofError" style="display:none;"></p>
+          </div>
+        </div>
+
+        <!-- ── Section: Debit EDC ────────────────────────────── -->
+        <div x-show="payMethod === 'debit'" class="space-y-3" style="display:none;">
+          <div class="bg-sand border border-border rounded-xl p-5 flex items-start gap-4">
+            <div class="w-10 h-10 rounded-xl bg-sage/10 border border-sage/25 flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5 text-sage-deep" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-ink">Debit via Mesin EDC</p>
+              <p class="text-xs text-stone mt-1">Proses pembayaran lewat mesin EDC. Minta pelanggan menghubungkan kartu debit ke mesin, masukkan PIN, dan konfirmasi setelah mesin mencetak slip EDC.</p>
+              <div class="mt-3 flex items-center justify-between">
+                <p class="text-xs text-stone">Total bayar</p>
+                <p class="text-base font-display font-bold text-ink" x-text="formatPrice(cartTotal)"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal footer -->
+      <div class="px-5 sm:px-6 py-4 border-t border-border flex gap-3 flex-shrink-0 bg-white">
+        <button
+          id="btn-batal-bayar"
+          type="button"
+          @click="closePayModal()"
+          :disabled="paying"
+          class="flex-1 py-2.5 rounded-xl bg-sand hover:bg-border text-ink text-sm font-medium transition-colors border border-border disabled:opacity-50">
+          Batal
+        </button>
+        <button
+          id="btn-konfirmasi-bayar"
+          type="button"
+          @click="confirmPayment()"
+          :disabled="!canConfirmPay || paying"
+          class="flex-[2] py-2.5 rounded-xl bg-sage hover:bg-sage-deep text-white text-sm font-semibold
+                 transition-colors disabled:opacity-40 disabled:cursor-not-allowed
+                 inline-flex items-center justify-center gap-2">
+          <svg x-show="paying" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          <span x-text="paying ? (uploadingProof ? 'Mengupload...' : 'Memproses...') : 'Konfirmasi Pembayaran'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Hidden receipt area — hanya muncul saat window.print() ──────────── -->
+  <!-- Area ini SELALU ada di DOM; @media print menyembunyikan semua elemen    -->
+  <!-- lain dan hanya menampilkan div ini                                       -->
+  <div id="struk-print" style="display:none;">
+    <template x-if="showReceiptModal">
+      <div>
+        <div class="struk-title">GIVA STORE</div>
+        <div class="struk-sub" x-show="!receipt.isReprint">Struk Penjualan</div>
+        <div class="struk-sub font-bold" x-show="receipt.isReprint" style="font-weight: 700;">*** CETAK ULANG ***</div>
+        <hr class="struk-divider" />
+
+        <div class="struk-row">
+          <span class="label">Tanggal</span>
+          <span class="value" x-text="receipt.tanggal"></span>
+        </div>
+        <div class="struk-row">
+          <span class="label">Jam</span>
+          <span class="value" x-text="receipt.jam"></span>
+        </div>
+        <div class="struk-row">
+          <span class="label">No. Transaksi</span>
+          <span class="value" x-text="String(receipt.saleId).substring(0, 8).toUpperCase()"></span>
+        </div>
+        <div class="struk-row">
+          <span class="label">Kasir</span>
+          <span class="value" x-text="receipt.kasir"></span>
+        </div>
+
+        <hr class="struk-divider" />
+
+        <template x-for="item in receipt.items" :key="item.id">
+          <div>
+            <div class="struk-item-name" x-text="item.name"></div>
+            <div class="struk-item-variant" x-show="item.color_name" x-text="'Warna: ' + item.color_name" style="display:none;"></div>
+            <div class="struk-item-detail">
+              <span x-text="item.qty + ' x ' + formatPrice(item.sell_price)"></span>
+              <span x-text="formatPrice(item.sell_price * item.qty)"></span>
+            </div>
+          </div>
+        </template>
+
+        <hr class="struk-divider" />
+
+        <div class="struk-total-row">
+          <span>TOTAL</span>
+          <span x-text="formatPrice(receipt.total)"></span>
+        </div>
+
+        <hr class="struk-divider" />
+
+        <div class="struk-row">
+          <span class="label">Metode Bayar</span>
+          <span class="value" x-text="methodLabel(receipt.method)"></span>
+        </div>
+        <div class="struk-row" x-show="receipt.method === 'cash'">
+          <span class="label">Nominal Bayar</span>
+          <span class="value" x-text="formatPrice(receipt.nominal)"></span>
+        </div>
+        <div class="struk-row" x-show="receipt.method === 'cash'">
+          <span class="label">Kembalian</span>
+          <span class="value" x-text="formatPrice(receipt.kembalian)"></span>
+        </div>
+
+        <hr class="struk-divider" />
+        <div class="struk-footer">Terima kasih atas kunjungan Anda!</div>
+        <div class="struk-footer">— Giva Store —</div>
+      </div>
+    </template>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       MODAL STRUK — tampil setelah pembayaran berhasil
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div
+    x-show="showReceiptModal"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    @keydown.escape.window="closeReceipt()"
+    class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4"
+    style="display:none;">
+
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-ink/20 backdrop-blur-sm"></div>
+
+    <!-- Modal panel -->
+    <div
+      x-show="showReceiptModal"
+      x-transition:enter="transition ease-out duration-250"
+      x-transition:enter-start="opacity-0 translate-y-4 sm:scale-95 sm:translate-y-0"
+      x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave="transition ease-in duration-150"
+      x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave-end="opacity-0 translate-y-4 sm:scale-95 sm:translate-y-0"
+      class="relative w-full sm:max-w-sm bg-white sm:border border-t sm:border-border sm:rounded-2xl
+             rounded-t-2xl max-h-[90dvh] flex flex-col overflow-hidden shadow-xl">
+
+      <!-- Success / Reprint header -->
+      <div class="px-5 sm:px-6 pt-6 pb-4 border-b border-border flex-shrink-0 text-center">
+        <div class="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-border sm:hidden"></div>
+        
+        <template x-if="!receipt.isReprint">
+          <div>
+            <!-- Checkmark icon -->
+            <div class="w-14 h-14 rounded-2xl bg-sage/10 border border-sage/25 flex items-center justify-center mx-auto mb-4 mt-2 sm:mt-0">
+              <svg class="w-7 h-7 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 class="text-lg font-display font-semibold text-ink">Pembayaran Berhasil!</h2>
+          </div>
+        </template>
+        
+        <template x-if="receipt.isReprint">
+          <div>
+            <!-- Reprint icon -->
+            <div class="w-14 h-14 rounded-2xl bg-sand border border-border flex items-center justify-center mx-auto mb-4 mt-2 sm:mt-0">
+              <svg class="w-7 h-7 text-stone" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+            </div>
+            <h2 class="text-lg font-display font-semibold text-ink">Cetak Ulang Struk</h2>
+          </div>
+        </template>
+
+        <p class="text-xs text-stone mt-1" x-show="showReceiptModal"
+          x-text="'No. ' + String(receipt.saleId).substring(0, 8).toUpperCase() + ' · ' + receipt.tanggal + ' ' + receipt.jam"></p>
+      </div>
+
+      <!-- Receipt preview (scrollable) -->
+      <div class="flex-1 overflow-y-auto px-5 sm:px-6 py-4" x-show="showReceiptModal">
+        <!-- Items list -->
+        <div class="space-y-2 mb-4">
+          <template x-for="item in receipt.items" :key="item.id">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm text-ink" x-text="item.name"></p>
+                <p class="text-[10px] text-stone mt-0.5" x-show="item.color_name" x-text="'Warna: ' + item.color_name" style="display:none;"></p>
+                <p class="text-xs text-stone mt-0.5" x-text="item.qty + ' × ' + formatPrice(item.sell_price)"></p>
+              </div>
+              <p class="text-sm font-medium text-ink flex-shrink-0" x-text="formatPrice(item.sell_price * item.qty)"></p>
+            </div>
+          </template>
+        </div>
+
+        <hr class="border-border mb-4" />
+
+        <!-- Totals -->
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <span class="text-sm font-semibold text-ink">Total</span>
+            <span class="text-sm font-semibold text-ink" x-text="formatPrice(receipt.total)"></span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-xs text-stone">Metode Bayar</span>
+            <span class="text-xs font-medium text-ink" x-text="methodLabel(receipt.method)"></span>
+          </div>
+          <div class="flex justify-between" x-show="receipt.method === 'cash'">
+            <span class="text-xs text-stone">Nominal Bayar</span>
+            <span class="text-xs text-ink" x-text="formatPrice(receipt.nominal)"></span>
+          </div>
+          <div class="flex justify-between items-center px-3 py-2 bg-sage/8 border border-sage/20 rounded-xl" x-show="receipt.method === 'cash'">
+            <span class="text-sm font-medium text-sage-deep">Kembalian</span>
+            <span class="text-base font-display font-semibold text-sage-deep" x-text="formatPrice(receipt.kembalian)"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer actions -->
+      <div class="px-5 sm:px-6 py-4 border-t border-border flex gap-3 flex-shrink-0 bg-white">
+        <!-- Tutup -->
+        <button
+          id="btn-tutup-struk"
+          type="button"
+          @click="closeReceipt()"
+          class="flex-1 py-2.5 rounded-xl bg-sand hover:bg-border text-ink text-sm font-medium transition-colors border border-border">
+          Tutup
+        </button>
+        <!-- Cetak Struk -->
+        <button
+          id="btn-cetak-struk"
+          type="button"
+          @click="printStruk()"
+          class="flex-[2] py-2.5 rounded-xl bg-sage hover:bg-sage-deep text-white text-sm font-semibold
+                 transition-colors inline-flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+          </svg>
+          Cetak Struk
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       MODAL DETAIL TRANSAKSI
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div
+    x-show="showTrxDetailModal"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    @keydown.escape.window="closeTrxDetail()"
+    class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4"
+    style="display:none;">
+
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-ink/20 backdrop-blur-sm" @click="closeTrxDetail()"></div>
+
+    <!-- Modal panel -->
+    <div
+      x-show="showTrxDetailModal"
+      x-transition:enter="transition ease-out duration-250"
+      x-transition:enter-start="opacity-0 translate-y-4 sm:scale-95 sm:translate-y-0"
+      x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave="transition ease-in duration-150"
+      x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave-end="opacity-0 translate-y-4 sm:scale-95 sm:translate-y-0"
+      class="relative w-full sm:max-w-md bg-white sm:border border-t sm:border-border sm:rounded-2xl
+             rounded-t-2xl max-h-[90dvh] flex flex-col overflow-hidden shadow-xl">
+
+      <!-- Header -->
+      <div class="px-5 sm:px-6 pt-5 pb-4 border-b border-border flex items-start justify-between flex-shrink-0">
+        <div class="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-border sm:hidden"></div>
+        <div class="mt-2 sm:mt-0" x-show="activeTrx">
+          <div class="flex items-center gap-2 mb-0.5">
+            <h2 class="text-base font-display font-semibold text-ink font-mono"
+              x-text="activeTrx ? '#' + String(activeTrx.id).substring(0, 8).toUpperCase() : ''"></h2>
+            <span
+              x-show="activeTrx"
+              :class="activeTrx?.payment_status === 'paid'
+                ? 'bg-sage/10 text-sage-deep border-sage/25'
+                : 'bg-amber-50 text-amber-700 border-amber-200'"
+              class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border"
+              x-text="activeTrx ? statusLabel(activeTrx.payment_status) : ''">
+            </span>
+          </div>
+          <p class="text-xs text-stone" x-show="activeTrx"
+            x-text="activeTrx ? activeTrx.jam + ' · ' + methodLabel(activeTrx.payMethod) : ''"></p>
+        </div>
+        <button
+          @click="closeTrxDetail()"
+          class="w-9 h-9 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all flex-shrink-0 mt-1 sm:mt-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="flex-1 overflow-y-auto px-5 sm:px-6 py-5">
+
+        <!-- Skeleton loader -->
+        <div x-show="loadingTrxDetail" class="space-y-3">
+          <template x-for="i in 3" :key="i">
+            <div class="h-12 rounded-xl bg-sand animate-pulse"></div>
+          </template>
+        </div>
+
+        <!-- Item list -->
+        <div x-show="!loadingTrxDetail">
+          <!-- Header row -->
+          <div class="flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-stone bg-sand rounded-xl mb-2">
+            <div class="flex-1">Produk</div>
+            <div class="text-right">Subtotal</div>
+          </div>
+
+          <!-- Item rows -->
+          <div class="divide-y divide-border">
+            <template x-for="(item, idx) in trxDetailItems" :key="idx">
+              <div class="flex items-center gap-3 px-3 py-3">
+                <!-- Left: name + detail -->
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-ink leading-snug" x-text="item.name"></p>
+                  <p class="text-xs text-stone mt-0.5 whitespace-nowrap"
+                    x-text="item.quantity + ' × ' + formatPrice(item.unit_price)"></p>
+                </div>
+                <!-- Right: subtotal -->
+                <div class="flex-shrink-0 text-right">
+                  <span class="text-sm font-semibold text-ink whitespace-nowrap"
+                    x-text="formatPrice(item.subtotal)"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- Empty items -->
+          <div x-show="!loadingTrxDetail && trxDetailItems.length === 0"
+            class="text-center py-8 text-sm text-stone">
+            Tidak ada item ditemukan.
+          </div>
+
+          <!-- Total -->
+          <div x-show="trxDetailItems.length > 0"
+            class="mt-4 flex items-center justify-between px-4 py-3 bg-sand border border-border rounded-xl">
+            <span class="text-sm font-semibold text-ink">Total</span>
+            <span class="text-lg font-display font-semibold text-ink"
+              x-text="activeTrx ? formatPrice(activeTrx.total_amount) : ''"></span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="px-5 sm:px-6 py-4 border-t border-border flex-shrink-0 bg-white flex gap-3">
+        <button
+          id="btn-tutup-detail-trx"
+          @click="closeTrxDetail()"
+          class="flex-1 py-2.5 rounded-xl bg-sand hover:bg-border text-ink text-sm font-medium transition-colors border border-border">
+          Tutup
+        </button>
+        <button
+          id="btn-cetak-ulang-trx"
+          @click="reprintTrx(activeTrx)"
+          class="flex-[2] py-2.5 rounded-xl bg-sage hover:bg-sage-deep text-white text-sm font-semibold transition-colors inline-flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+          </svg>
+          Cetak
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/kasir/index.js"></script>
+</body>
+
+</html>

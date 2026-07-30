@@ -1,0 +1,339 @@
+<!-- ── Announcement Bar ─────────────────────────────────────── -->
+<div
+  x-show="showAnnouncement"
+  x-transition:enter="transition ease-out duration-300"
+  x-transition:enter-start="opacity-0 -translate-y-full"
+  x-transition:enter-end="opacity-100 translate-y-0"
+  x-transition:leave="transition ease-in duration-200"
+  x-transition:leave-start="opacity-100 translate-y-0"
+  x-transition:leave-end="opacity-0 -translate-y-full"
+  :style="`background-color: ${settings.announcement_bar_bg_color || '#8FA07E'};`"
+  class="relative w-full overflow-hidden"
+  style="display:none;">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-center gap-3 min-h-[40px]">
+    <p
+      class="text-sm font-medium text-center leading-snug flex-1"
+      :style="`color: ${settings.announcement_bar_text_color || '#FFFFFF'};`"
+      x-text="settings.announcement_bar_text">
+    </p>
+    <button
+      type="button"
+      @click="dismissAnnouncement()"
+      class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center opacity-70 hover:opacity-100 transition-opacity"
+      :style="`color: ${settings.announcement_bar_text_color || '#FFFFFF'};`"
+      aria-label="Tutup">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- ── Navbar ───────────────────────────────────────────────── -->
+<header class="sticky top-0 z-40 bg-cream/90 backdrop-blur-md border-b border-border">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6">
+    <div class="flex items-center justify-between h-16 sm:h-[4.25rem] gap-3">
+      <!-- Brand -->
+      <a href="/toko/index.html" class="flex items-center gap-2.5 min-w-0 group">
+        <div
+          class="w-9 h-9 rounded-full bg-sage flex items-center justify-center flex-shrink-0 group-hover:bg-sage-deep transition-colors">
+          <span class="font-display text-white text-lg font-semibold leading-none"
+            x-text="(storeName || 'G').charAt(0).toUpperCase()"></span>
+        </div>
+        <span class="font-display text-xl sm:text-2xl font-semibold text-ink tracking-tight truncate"
+          x-text="storeName">Giva Store</span>
+      </a>
+
+      <!-- Desktop nav -->
+      <nav class="hidden md:flex items-center gap-8 relative">
+        <a href="/toko/products.html?q=Tas" class="text-sm font-medium text-ink hover:text-sage-deep transition-colors">Tas</a>
+        <a href="/toko/products.html?q=Dompet" class="text-sm font-medium text-ink hover:text-sage-deep transition-colors">Dompet</a>
+        <a href="/toko/products.html?gift=true" class="text-sm font-medium text-ink hover:text-sage-deep transition-colors">Hadiah Spesial</a>
+      </nav>
+
+      <!-- Right actions -->
+      <div class="flex items-center gap-1 sm:gap-2">
+        <!-- Search Desktop (Expandable) -->
+        <div class="hidden md:flex relative items-center" x-data="{ searchOpen: false, q: new URLSearchParams(window.location.search).get('q') || '' }" @click.outside="searchOpen = false">
+          <form x-show="searchOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="w-0 opacity-0" x-transition:enter-end="w-64 opacity-100" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="w-64 opacity-100" x-transition:leave-end="w-0 opacity-0" action="/toko/products.html" method="get" class="absolute right-0 flex items-center overflow-hidden" style="display:none;">
+            <input type="text" name="q" x-model="q" x-ref="searchInput" placeholder="Cari produk..." class="w-64 h-11 pl-4 pr-11 rounded-full border border-border bg-white text-sm focus:outline-none focus:border-sage focus:ring-1 focus:ring-sage" />
+            <button type="submit" class="absolute right-3 text-stone hover:text-ink">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            </button>
+          </form>
+          <button type="button" x-show="!searchOpen" @click="searchOpen = true; $nextTick(() => $refs.searchInput.focus())" class="relative w-11 h-11 rounded-full flex items-center justify-center text-ink hover:bg-sand transition-colors" aria-label="Cari">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          </button>
+        </div>
+
+        <!-- Search Mobile -->
+        <a href="/toko/products.html" class="md:hidden relative w-11 h-11 rounded-full flex items-center justify-center text-ink hover:bg-sand transition-colors" aria-label="Cari">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        </a>
+
+        <!-- Wishlist -->
+        <a href="/toko/wishlist.html"
+          class="relative hidden sm:flex w-11 h-11 rounded-full items-center justify-center text-ink hover:bg-sand transition-colors"
+          aria-label="Wishlist">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+        </a>
+
+        <!-- Cart -->
+        <button type="button" @click="cartDrawerOpen = true"
+          class="relative w-11 h-11 rounded-full flex items-center justify-center text-ink hover:bg-sand transition-colors"
+          aria-label="Keranjang">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"
+              d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+          <span x-show="cartCount > 0"
+            class="absolute top-1.5 right-1.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-sage text-white text-[10px] font-semibold flex items-center justify-center leading-none"
+            x-text="cartCount > 99 ? '99+' : cartCount" style="display:none;"></span>
+        </button>
+
+        <!-- Auth: guest -->
+        <a x-show="!customer" href="/toko/login.html"
+          class="hidden sm:inline-flex items-center justify-center min-h-[44px] px-4 rounded-full border border-border bg-white text-sm font-medium text-ink hover:border-sage hover:bg-sage/10 transition-all">
+          Masuk
+        </a>
+
+        <!-- Auth: logged in -->
+        <div x-show="customer" class="relative hidden sm:block" @click.outside="customerMenuOpen = false"
+          style="display:none;">
+          <button type="button" @click="customerMenuOpen = !customerMenuOpen"
+            class="inline-flex items-center gap-2 min-h-[44px] pl-2 pr-3 rounded-full border border-border bg-white text-sm font-medium text-ink hover:border-sage transition-all">
+            <span
+              class="w-7 h-7 rounded-full bg-sage/15 text-sage-deep flex items-center justify-center text-xs font-semibold"
+              x-text="(customer?.name || 'P').charAt(0).toUpperCase()"></span>
+            <span class="max-w-[7rem] truncate" x-text="customer?.name || 'Akun'"></span>
+            <svg class="w-3.5 h-3.5 text-stone" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div x-show="customerMenuOpen" x-transition
+            class="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-white shadow-lg py-1.5 z-50"
+            style="display:none;">
+            <a href="/toko/profile.html"
+              class="block px-4 py-2.5 text-sm text-ink hover:bg-sand transition-colors">Profil</a>
+            <a href="/toko/orders.html"
+              class="block px-4 py-2.5 text-sm text-ink hover:bg-sand transition-colors">Pesanan Saya</a>
+            <button type="button" @click="logoutCustomer()"
+              class="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">Keluar</button>
+          </div>
+        </div>
+
+        <!-- Mobile hamburger -->
+        <button type="button" @click="mobileNavOpen = true"
+          class="md:hidden w-11 h-11 rounded-full flex items-center justify-center text-ink hover:bg-sand transition-colors"
+          aria-label="Buka menu">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Mobile drawer -->
+<div x-show="mobileNavOpen" class="fixed inset-0 z-50 md:hidden" style="display:none;">
+  <div class="absolute inset-0 bg-ink/30 backdrop-blur-sm" @click="mobileNavOpen = false"
+    x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"></div>
+  <aside
+    class="absolute top-0 right-0 h-full w-[min(100%,20rem)] bg-cream border-l border-border shadow-xl flex flex-col"
+    x-show="mobileNavOpen" x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+    x-transition:leave="transition ease-in duration-150" x-transition:leave-start="translate-x-0"
+    x-transition:leave-end="translate-x-full">
+    <div class="flex items-center justify-between px-5 h-16 border-b border-border flex-shrink-0">
+      <span class="font-display text-xl font-semibold" x-text="storeName"></span>
+      <button type="button" @click="mobileNavOpen = false"
+        class="w-11 h-11 rounded-full flex items-center justify-center text-stone hover:bg-sand" aria-label="Tutup">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto">
+      <nav class="px-3 py-4 space-y-1">
+        <a href="/toko/products.html?q=Tas" class="flex items-center min-h-[44px] px-3 rounded-xl text-sm font-medium text-ink hover:bg-sand">Tas</a>
+        <a href="/toko/products.html?q=Dompet" class="flex items-center min-h-[44px] px-3 rounded-xl text-sm font-medium text-ink hover:bg-sand">Dompet</a>
+        <a href="/toko/products.html?gift=true" class="flex items-center min-h-[44px] px-3 rounded-xl text-sm font-medium text-ink hover:bg-sand">Hadiah Spesial</a>
+        <div class="my-2 border-t border-border"></div>
+        <a href="/toko/wishlist.html"
+          class="flex items-center min-h-[44px] px-3 rounded-xl text-sm font-medium text-ink hover:bg-sand">Wishlist</a>
+        <button type="button" @click="mobileNavOpen = false; cartDrawerOpen = true"
+          class="w-full flex items-center justify-between min-h-[44px] px-3 rounded-xl text-sm font-medium text-ink hover:bg-sand">
+          <span>Keranjang</span>
+          <span x-show="cartCount > 0" class="text-xs font-semibold text-sage-deep bg-sage/15 px-2 py-0.5 rounded-full"
+            x-text="cartCount" style="display:none;"></span>
+        </button>
+      </nav>
+      <div class="px-4 py-4 border-t border-border space-y-2">
+        <template x-if="!customer">
+          <a href="/toko/login.html"
+            class="flex items-center justify-center min-h-[44px] rounded-xl bg-sage text-white text-sm font-semibold hover:bg-sage-deep transition-colors">Masuk</a>
+        </template>
+        <template x-if="customer">
+          <div class="space-y-1">
+            <p class="px-1 text-xs text-stone">Masuk sebagai</p>
+            <p class="px-1 text-sm font-semibold text-ink truncate" x-text="customer?.name"></p>
+            <a href="/toko/profile.html"
+              class="flex items-center min-h-[44px] px-2 rounded-lg text-sm text-ink hover:bg-sand">Profil</a>
+            <a href="/toko/orders.html"
+              class="flex items-center min-h-[44px] px-2 rounded-lg text-sm text-ink hover:bg-sand">Pesanan Saya</a>
+            <button type="button" @click="logoutCustomer()"
+              class="w-full text-left min-h-[44px] px-2 rounded-lg text-sm text-red-600 hover:bg-red-50">Keluar</button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- Cart Drawer Slide-Over -->
+<div x-show="cartDrawerOpen" class="fixed inset-0 z-50 flex justify-end" style="display:none;">
+  <!-- Overlay gelap transparan (klik = tutup) -->
+  <div class="absolute inset-0 bg-ink/40 backdrop-blur-sm" @click="cartDrawerOpen = false"
+    x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-200"
+    x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"></div>
+  
+  <aside class="relative w-full sm:max-w-[420px] bg-white h-full shadow-2xl flex flex-col z-10"
+    x-show="cartDrawerOpen" x-transition:enter="transition ease-out duration-300 transform"
+    x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+    x-transition:leave="transition ease-in duration-200 transform" x-transition:leave-start="translate-x-0"
+    x-transition:leave-end="translate-x-full">
+    
+    <!-- Header Drawer -->
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+      <div class="flex items-center gap-2">
+        <h2 class="font-display text-2xl font-semibold text-ink">Keranjang</h2>
+        <span class="text-sm text-stone font-medium" x-text="`(${cartCount} item)`"></span>
+      </div>
+      <button @click="cartDrawerOpen = false" class="p-1.5 rounded-full text-stone hover:text-ink hover:bg-sand transition-colors cursor-pointer" aria-label="Tutup keranjang">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+    </div>
+
+    <!-- Empty State Drawer -->
+    <div x-show="cartCount === 0" class="flex-1 flex flex-col items-center justify-center p-8 text-center" style="display:none;">
+      <div class="w-20 h-20 bg-sand rounded-full flex items-center justify-center text-stone mb-4">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+      </div>
+      <h3 class="font-display text-2xl font-semibold text-ink mb-2">Keranjang kamu masih kosong</h3>
+      <p class="text-stone text-xs sm:text-sm mb-6 max-w-xs leading-relaxed">Yuk, temukan berbagai koleksi impian yang menarik di katalog kami!</p>
+      <button @click="cartDrawerOpen = false; window.location.href='/toko/products.html'" class="px-8 py-3 rounded-full bg-sage text-white font-semibold text-sm hover:bg-sage-deep transition-all shadow-sm cursor-pointer">
+        Lihat Produk
+      </button>
+    </div>
+
+    <!-- Cart Items List (Scrollable) -->
+    <div x-show="cartCount > 0" class="flex-1 overflow-y-auto p-4 sm:p-5 divide-y divide-border">
+      <template x-for="(item, idx) in cartItems" :key="item.cartKey || (item.product_id + '-' + item.variant_id)">
+        <div class="py-4 first:pt-0 last:pb-0 flex gap-3.5 relative group">
+          <!-- Gambar Produk (60x80px, aspect 3:4, object-cover) -->
+          <div class="w-[60px] h-[80px] bg-sand rounded-lg overflow-hidden flex-shrink-0 border border-border">
+            <template x-if="item.image_url">
+              <img :src="item.image_url" :alt="item.name" class="w-full h-full object-cover" />
+            </template>
+            <template x-if="!item.image_url">
+              <div class="w-full h-full flex items-center justify-center text-stone/40">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              </div>
+            </template>
+          </div>
+
+          <!-- Detail Item -->
+          <div class="flex-1 flex flex-col justify-between min-w-0 pr-6">
+            <div>
+              <p class="text-[10px] font-bold tracking-wider text-stone uppercase truncate mb-0.5" x-text="item.brand_name || ''"></p>
+              <h4 class="text-xs sm:text-sm font-semibold text-ink line-clamp-2 leading-snug" x-text="item.name"></h4>
+              <template x-if="item.color_name">
+                <div class="flex items-center gap-1.5 mt-1">
+                  <span class="w-2.5 h-2.5 rounded-full border border-border flex-shrink-0" :style="`background-color: ${item.hex_code || item.color_hex}`"></span>
+                  <span class="text-[11px] text-stone font-medium" x-text="item.color_name"></span>
+                </div>
+              </template>
+              <p class="text-xs font-medium text-stone mt-1" x-text="formatPrice(item.price || item.sell_price)"></p>
+            </div>
+
+            <!-- Stepper Qty & Item Subtotal -->
+            <div class="flex items-center justify-between mt-3">
+              <div class="flex items-center rounded-lg border border-border bg-white h-7 px-1">
+                <button
+                  type="button"
+                  @click="updateCartQty(idx, item.qty - 1)"
+                  :disabled="item.qty <= 1"
+                  class="w-5 h-5 flex items-center justify-center text-stone hover:text-ink disabled:opacity-30 cursor-pointer"
+                >&minus;</button>
+                <span class="text-xs font-semibold text-ink w-6 text-center" x-text="item.qty"></span>
+                <button
+                  type="button"
+                  @click="updateCartQty(idx, item.qty + 1)"
+                  :disabled="item.qty >= (item.stock || item.max_quantity || 99)"
+                  class="w-5 h-5 flex items-center justify-center text-stone hover:text-ink disabled:opacity-30 cursor-pointer"
+                >&plus;</button>
+              </div>
+
+              <!-- Subtotal per item -->
+              <span class="text-xs font-semibold text-ink" x-text="formatPrice((item.price || item.sell_price || 0) * item.qty)"></span>
+            </div>
+          </div>
+
+          <!-- Tombol × Hapus -->
+          <button
+            type="button"
+            @click="removeFromCart(idx)"
+            class="absolute top-4 right-0 p-1 text-stone hover:text-red-500 transition-colors cursor-pointer"
+            title="Hapus item"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      </template>
+    </div>
+
+    <!-- Sticky Footer Drawer -->
+    <div class="p-5 bg-cream border-t border-border flex-shrink-0 space-y-3 shadow-lg">
+      
+      <!-- Progress Bar Gratis Ongkir -->
+      <template x-if="freeShippingThreshold > 0 && cartCount > 0">
+        <div class="space-y-1.5">
+          <div class="text-xs font-semibold flex items-center justify-between">
+            <span :class="cartSubtotal >= freeShippingThreshold ? 'text-sage-deep font-bold' : 'text-stone'"
+                  x-text="cartSubtotal >= freeShippingThreshold ? 'Kamu dapat gratis ongkir! 🎉' : `Tambah ${formatPrice(freeShippingThreshold - cartSubtotal)} lagi untuk gratis ongkir!`">
+            </span>
+          </div>
+          <div class="h-1.5 w-full bg-border rounded-full overflow-hidden">
+            <div class="h-full bg-sage transition-all duration-500 ease-out" 
+                 :style="`width: ${Math.min((cartSubtotal / freeShippingThreshold) * 100, 100)}%`"></div>
+          </div>
+        </div>
+      </template>
+
+      <!-- Subtotal Ringkasan -->
+      <div class="flex justify-between items-center">
+        <span class="text-xs font-semibold text-ink" x-text="`Subtotal (${cartCount} item):`"></span>
+        <span class="font-display text-2xl font-semibold text-ink" x-text="formatPrice(cartSubtotal)"></span>
+      </div>
+
+      <p class="text-[11px] text-stone italic text-center">Ongkir dihitung saat checkout</p>
+
+      <!-- Tombol Lanjut ke Checkout -->
+      <button
+        type="button"
+        @click="cartDrawerOpen = false; window.location.href='/toko/checkout.html'"
+        :disabled="cartCount === 0"
+        class="w-full py-3.5 rounded-xl bg-sage text-white font-semibold text-sm hover:bg-sage-deep disabled:opacity-50 disabled:bg-stone/30 disabled:cursor-not-allowed transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+      >
+        Lanjut ke Checkout
+      </button>
+    </div>
+
+  </aside>
+</div>

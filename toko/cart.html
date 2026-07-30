@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Keranjang — Giva Store</title>
+  <meta name="description" content="Keranjang belanja Giva Store." />
+  <link rel="stylesheet" href="/src/style.css" />
+  <style>[x-cloak]{display:none!important}</style>
+</head>
+
+<body class="bg-cream text-ink min-h-screen font-sans antialiased" x-data="storeCart" x-init="init()" x-cloak>
+
+  <header class="sticky top-0 z-40 bg-cream/90 backdrop-blur-md border-b border-border">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="flex items-center justify-between h-16 gap-3">
+        <a href="/toko/index.html" class="flex items-center gap-2.5 group">
+          <div class="w-9 h-9 rounded-full bg-sage flex items-center justify-center group-hover:bg-sage-deep transition-colors">
+            <span class="font-display text-white text-lg font-semibold" x-text="(storeName||'G').charAt(0).toUpperCase()"></span>
+          </div>
+          <span class="font-display text-xl font-semibold tracking-tight" x-text="storeName"></span>
+        </a>
+        <nav class="hidden md:flex items-center gap-8">
+          <a href="/toko/index.html" class="text-sm font-medium text-stone hover:text-ink">Beranda</a>
+          <a href="/toko/products.html" class="text-sm font-medium text-stone hover:text-ink">Produk</a>
+          <a href="/toko/cart.html" class="text-sm font-medium text-sage-deep">Keranjang</a>
+        </nav>
+        <div class="flex items-center gap-1">
+          <a href="/toko/cart.html" class="relative w-11 h-11 rounded-full flex items-center justify-center hover:bg-sand" aria-label="Keranjang">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+            </svg>
+            <span x-show="cartCount > 0" class="absolute top-1.5 right-1.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-sage text-white text-[10px] font-semibold flex items-center justify-center"
+              x-text="cartCount > 99 ? '99+' : cartCount" style="display:none;"></span>
+          </a>
+          <a x-show="!customer" href="/toko/login.html" class="hidden sm:inline-flex min-h-[44px] px-4 items-center rounded-full border border-border bg-white text-sm font-medium">Masuk</a>
+          <div x-show="customer" class="relative hidden sm:block" @click.outside="customerMenuOpen=false" style="display:none;">
+            <button type="button" @click="customerMenuOpen=!customerMenuOpen"
+              class="inline-flex items-center gap-2 min-h-[44px] pl-2 pr-3 rounded-full border border-border bg-white text-sm font-medium">
+              <span class="w-7 h-7 rounded-full bg-sage/15 text-sage-deep flex items-center justify-center text-xs font-semibold"
+                x-text="(customer?.name||'P').charAt(0).toUpperCase()"></span>
+              <span class="max-w-[7rem] truncate" x-text="customer?.name"></span>
+            </button>
+            <div x-show="customerMenuOpen" class="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-white shadow-lg py-1.5 z-50" style="display:none;">
+              <a href="/toko/profile.html" class="block px-4 py-2.5 text-sm hover:bg-sand">Profil</a>
+              <a href="/toko/orders.html" class="block px-4 py-2.5 text-sm hover:bg-sand">Pesanan Saya</a>
+              <button type="button" @click="logoutCustomer()" class="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">Keluar</button>
+            </div>
+          </div>
+          <button type="button" @click="mobileNavOpen=true" class="md:hidden w-11 h-11 rounded-full flex items-center justify-center hover:bg-sand" aria-label="Menu">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div x-show="mobileNavOpen" class="fixed inset-0 z-50 md:hidden" style="display:none;">
+    <div class="absolute inset-0 bg-ink/30" @click="mobileNavOpen=false"></div>
+    <aside class="absolute top-0 right-0 h-full w-[min(100%,20rem)] bg-cream border-l border-border p-4">
+      <button type="button" @click="mobileNavOpen=false" class="w-11 h-11 rounded-full hover:bg-sand mb-4">✕</button>
+      <nav class="space-y-1">
+        <a href="/toko/index.html" class="flex min-h-[44px] items-center px-3 rounded-xl hover:bg-sand text-sm">Beranda</a>
+        <a href="/toko/products.html" class="flex min-h-[44px] items-center px-3 rounded-xl hover:bg-sand text-sm">Produk</a>
+        <a href="/toko/cart.html" class="flex min-h-[44px] items-center px-3 rounded-xl bg-sage/10 text-sage-deep text-sm font-medium">Keranjang</a>
+      </nav>
+    </aside>
+  </div>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+    <div class="mb-8">
+      <p class="text-xs font-semibold tracking-[0.18em] uppercase text-sage-deep mb-2">Shopping bag</p>
+      <h1 class="font-display text-3xl sm:text-4xl font-semibold tracking-tight">Keranjang</h1>
+    </div>
+
+    <div x-show="loading" class="animate-pulse h-40 rounded-2xl bg-sand border border-border"></div>
+
+    <div x-show="!loading && isEmpty" class="rounded-2xl border border-dashed border-border bg-white px-6 py-16 text-center" style="display:none;">
+      <p class="font-display text-2xl text-ink mb-2">Keranjang masih kosong</p>
+      <p class="text-sm text-stone mb-6">Jelajahi koleksi dan tambahkan produk favorit Anda.</p>
+      <a href="/toko/products.html" class="inline-flex min-h-[48px] px-6 items-center rounded-full bg-sage text-white text-sm font-semibold hover:bg-sage-deep">Lanjut Belanja</a>
+    </div>
+
+    <div x-show="!loading && !isEmpty" class="grid lg:grid-cols-3 gap-8" style="display:none;">
+      <div class="lg:col-span-2 space-y-3">
+        <template x-for="item in items" :key="item.cartKey">
+          <article class="flex gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl border border-border bg-white">
+            <a :href="productUrl(item.product_id)" class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-sand border border-border overflow-hidden flex-shrink-0">
+              <template x-if="item.image_url">
+                <img :src="item.image_url" :alt="item.name" class="w-full h-full object-cover" />
+              </template>
+              <template x-if="!item.image_url">
+                <div class="w-full h-full flex items-center justify-center text-stone/40 text-xs">No img</div>
+              </template>
+            </a>
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between gap-2">
+                <div class="min-w-0">
+                  <a :href="productUrl(item.product_id)" class="text-sm font-semibold text-ink hover:text-sage-deep line-clamp-2" x-text="item.name"></a>
+                  <p x-show="item.color_name" class="mt-1 text-xs text-stone flex items-center gap-1.5" style="display:none;">
+                    <span class="w-3 h-3 rounded-full border border-border inline-block" :style="`background:${item.color_hex||'#ccc'}`"></span>
+                    <span x-text="item.color_name"></span>
+                  </p>
+                  <p class="mt-1 text-sm text-ink" x-text="formatPrice(item.sell_price)"></p>
+                </div>
+                <button type="button" @click="remove(item)" class="w-10 h-10 flex-shrink-0 rounded-full text-stone hover:text-red-600 hover:bg-red-50" aria-label="Hapus">
+                  <svg class="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <div class="inline-flex items-center rounded-xl border border-border overflow-hidden bg-cream/40">
+                  <button type="button" @click="dec(item)" class="w-10 h-10 flex items-center justify-center hover:bg-sand">−</button>
+                  <input type="number" min="1" :value="item.qty" @change="setQty(item, $event.target.value)"
+                    class="w-12 h-10 text-center text-sm font-semibold border-x border-border bg-transparent focus:outline-none" />
+                  <button type="button" @click="inc(item)" class="w-10 h-10 flex items-center justify-center hover:bg-sand">+</button>
+                </div>
+                <p class="text-sm font-semibold" x-text="formatPrice(lineSubtotal(item))"></p>
+              </div>
+            </div>
+          </article>
+        </template>
+      </div>
+
+      <aside class="lg:sticky lg:top-24 h-fit rounded-2xl border border-border bg-white p-5 sm:p-6">
+        <h2 class="font-display text-xl font-semibold mb-4">Ringkasan</h2>
+        <div class="space-y-3 text-sm">
+          <div class="flex justify-between gap-3">
+            <span class="text-stone">Subtotal</span>
+            <span class="font-semibold" x-text="formatPrice(subtotal)"></span>
+          </div>
+          <div class="flex justify-between gap-3">
+            <span class="text-stone">Ongkir</span>
+            <span class="text-stone text-right text-xs sm:text-sm">Dihitung saat checkout</span>
+          </div>
+          <div class="border-t border-border pt-3 flex justify-between gap-3">
+            <span class="font-medium">Total sementara</span>
+            <span class="text-lg font-semibold" x-text="formatPrice(subtotal)"></span>
+          </div>
+        </div>
+        <button type="button" @click="goCheckout()"
+          class="mt-6 w-full min-h-[48px] rounded-full bg-sage hover:bg-sage-deep text-white text-sm font-semibold transition-colors">
+          Lanjut ke Checkout
+        </button>
+        <a href="/toko/products.html"
+          class="mt-3 flex w-full min-h-[48px] items-center justify-center rounded-full border border-border bg-sand text-sm font-semibold hover:bg-border transition-colors">
+          Lanjut Belanja
+        </a>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="border-t border-border bg-sand mt-16">
+    <div class="max-w-6xl mx-auto px-4 py-8 text-xs text-stone">
+      © <span x-text="new Date().getFullYear()"></span> <span x-text="storeName"></span>
+    </div>
+  </footer>
+
+  <script type="module" src="/src/toko/cart.js"></script>
+</body>
+</html>

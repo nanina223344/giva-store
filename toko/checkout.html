@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkout — Giva Store</title>
+  <meta name="description" content="Selesaikan pesanan belanja Anda di Giva Store." />
+  <link rel="stylesheet" href="/src/style.css" />
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+
+<body class="bg-cream text-ink min-h-screen font-sans antialiased flex flex-col" x-data="storeCheckout" x-init="init()" x-cloak>
+  
+  <!-- Announcement Bar minimal -->
+  <div
+    x-show="showAnnouncement"
+    :style="`background-color: ${settings.announcement_bar_bg_color || '#8FA07E'};`"
+    class="w-full text-center py-2 px-4 text-xs font-medium"
+    :style="`color: ${settings.announcement_bar_text_color || '#FFFFFF'};`"
+    style="display:none;"
+  >
+    <span x-text="settings.announcement_bar_text"></span>
+  </div>
+
+  <!-- Minimal Header (Logo Only) -->
+  <header class="bg-cream border-b border-border py-4">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
+      <a href="/toko/index.html" class="flex items-center gap-2.5 group">
+        <div class="w-9 h-9 rounded-full bg-sage flex items-center justify-center group-hover:bg-sage-deep transition-colors">
+          <span class="font-display text-white text-lg font-semibold leading-none" x-text="(storeName || 'G').charAt(0).toUpperCase()"></span>
+        </div>
+        <span class="font-display text-xl sm:text-2xl font-semibold text-ink tracking-tight" x-text="storeName">Giva Store</span>
+      </a>
+
+      <!-- Security Trust Badge -->
+      <div class="flex items-center gap-2 text-stone text-xs font-medium">
+        <svg class="w-4 h-4 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <span>Checkout Aman</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Loading State -->
+  <div x-show="loading" class="flex-1 flex items-center justify-center min-h-[50vh]">
+    <svg class="animate-spin w-8 h-8 text-sage" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+  </div>
+
+  <!-- Main Checkout Container -->
+  <main x-show="!loading" class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-10" style="display:none;">
+    
+    <!-- Step Indicator (Visual) -->
+    <div class="mb-8 flex items-center justify-center gap-2 sm:gap-4 max-w-md mx-auto">
+      <div class="flex items-center gap-2 text-sage-deep font-semibold text-xs sm:text-sm">
+        <span class="w-6 h-6 rounded-full bg-sage text-white text-xs flex items-center justify-center">1</span>
+        <span>Alamat</span>
+      </div>
+      <div class="w-8 h-px bg-border"></div>
+      <div class="flex items-center gap-2 text-sage-deep font-semibold text-xs sm:text-sm">
+        <span class="w-6 h-6 rounded-full bg-sage text-white text-xs flex items-center justify-center">2</span>
+        <span>Pembayaran</span>
+      </div>
+      <div class="w-8 h-px bg-border"></div>
+      <div class="flex items-center gap-2 text-stone font-medium text-xs sm:text-sm">
+        <span class="w-6 h-6 rounded-full bg-sand text-stone text-xs flex items-center justify-center">3</span>
+        <span>Konfirmasi</span>
+      </div>
+    </div>
+
+    <!-- Error Alert Top -->
+    <div x-show="submitError" class="mb-6 p-4 rounded-2xl bg-red-50 text-red-600 border border-red-100 text-sm font-medium flex items-center gap-3" style="display:none;">
+      <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span x-text="submitError"></span>
+    </div>
+
+    <!-- Mobile Order Summary Collapsible Accordion (< lg) -->
+    <div class="lg:hidden mb-6 bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
+      <button
+        @click="summaryAccordionOpen = !summaryAccordionOpen"
+        class="w-full p-4 flex items-center justify-between bg-sand/30 font-semibold text-sm text-ink cursor-pointer"
+      >
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+          <span>Ringkasan Pesanan (<span x-text="cartCount"></span> item)</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="font-display font-semibold text-base text-ink" x-text="formatPrice(totalAmount)"></span>
+          <svg class="w-4 h-4 transition-transform duration-200" :class="summaryAccordionOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+      </button>
+
+      <div x-show="summaryAccordionOpen" class="p-4 border-t border-border space-y-3 bg-white" style="display:none;">
+        <div class="space-y-3 max-h-60 overflow-y-auto pr-1">
+          <template x-for="item in cartItems" :key="item.cartKey">
+            <div class="flex items-center gap-3">
+              <img :src="item.image_url" :alt="item.name" class="w-10 h-[53px] object-cover rounded-md bg-sand flex-shrink-0" />
+              <div class="flex-1 min-w-0">
+                <h4 class="text-xs font-medium text-ink truncate" x-text="item.name"></h4>
+                <p class="text-[11px] text-stone" x-text="`${item.color_name || '-'} x ${item.qty}`"></p>
+              </div>
+              <span class="text-xs font-semibold text-ink" x-text="formatPrice((item.price || item.sell_price || 0) * item.qty)"></span>
+            </div>
+          </template>
+        </div>
+
+        <div class="border-t border-border pt-3 space-y-1.5 text-xs">
+          <div class="flex justify-between text-stone">
+            <span>Subtotal Produk</span>
+            <span class="font-semibold text-ink" x-text="formatPrice(cartSubtotal)"></span>
+          </div>
+          <div class="flex justify-between text-stone">
+            <span>Ongkos Kirim</span>
+            <span class="font-semibold" :class="isFreeShipping ? 'text-sage-deep' : 'text-ink'">
+              <template x-if="!selectedAddressId"><span>Pilih alamat untuk hitung ongkir</span></template>
+              <template x-if="selectedAddressId">
+                <span x-text="isFreeShipping ? 'GRATIS 🎉' : formatPrice(shippingCost)"></span>
+              </template>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Grid Layout (Desktop 2 Columns) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- KOLOM KIRI (FORM CHECKOUT: 60% / 7 cols) -->
+      <div class="lg:col-span-7 space-y-6">
+        
+        <!-- SECTION 1: ALAMAT PENGIRIMAN -->
+        <section id="section-address" class="bg-white rounded-3xl border p-6 sm:p-8 shadow-sm transition-all" :class="hasAddressError ? 'border-red-500 ring-2 ring-red-200' : 'border-border'">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="font-display text-2xl font-semibold text-ink">1. Alamat Pengiriman</h2>
+            <template x-if="addresses.length > 0">
+              <button
+                type="button"
+                @click="showAddAddress = !showAddAddress"
+                class="text-xs sm:text-sm font-semibold text-sage-deep hover:underline cursor-pointer"
+              >
+                <span x-text="showAddAddress ? 'Batal Tambah' : '+ Gunakan Alamat Lain'"></span>
+              </button>
+            </template>
+          </div>
+
+          <!-- Loading Addresses -->
+          <div x-show="loadingAddresses" class="py-6 text-center text-stone text-sm">
+            <svg class="animate-spin w-5 h-5 mx-auto text-sage mb-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            Memuat alamat pengiriman...
+          </div>
+
+          <!-- Saved Addresses List Radio Cards -->
+          <div x-show="!loadingAddresses && !showAddAddress" class="space-y-3">
+            <template x-for="addr in addresses" :key="addr.id">
+              <label
+                class="flex items-start gap-3.5 p-4 rounded-2xl border transition-all cursor-pointer"
+                :class="selectedAddressId === addr.id ? 'border-sage bg-sage/5 shadow-sm' : 'border-border bg-white hover:border-sage/40'"
+              >
+                <input
+                  type="radio"
+                  name="address"
+                  :value="addr.id"
+                  x-model="selectedAddressId"
+                  @change="calculateShipping()"
+                  class="mt-1 w-4 h-4 text-sage border-border focus:ring-sage/30 accent-sage cursor-pointer"
+                />
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1 flex-wrap">
+                    <span class="inline-flex px-2 py-0.5 rounded bg-sand text-ink text-[10px] font-bold uppercase" x-text="addr.label || 'Rumah'"></span>
+                    <template x-if="addr.is_default">
+                      <span class="inline-flex px-2 py-0.5 rounded bg-sage text-white text-[10px] font-bold uppercase">Utama</span>
+                    </template>
+                  </div>
+                  <h3 class="font-semibold text-ink text-sm" x-text="addr.recipient_name"></h3>
+                  <p class="text-xs text-stone mb-1" x-text="addr.phone"></p>
+                  <p class="text-xs text-ink line-clamp-2 leading-relaxed" x-text="`${addr.address}, ${addr.city}, ${addr.province}${addr.postal_code ? ' ' + addr.postal_code : ''}`"></p>
+                  
+                  <template x-if="addr.shipping_zones">
+                    <p class="text-[11px] font-semibold text-sage-deep mt-2" x-text="`Zona: ${addr.shipping_zones.name} (${formatPrice(addr.shipping_zones.cost)})`"></p>
+                  </template>
+                </div>
+              </label>
+            </template>
+          </div>
+
+          <!-- Form Tambah Alamat Baru (Inline) -->
+          <div x-show="showAddAddress || (!loadingAddresses && addresses.length === 0)" class="mt-4 pt-4 border-t border-border space-y-4">
+            <h3 class="text-sm font-semibold text-ink">Tambah Alamat Baru</h3>
+            <form @submit.prevent="saveNewAddress" class="space-y-4">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold uppercase text-ink mb-1">Label Alamat</label>
+                  <input type="text" x-model="newAddr.label" required placeholder="Rumah / Kantor" class="w-full px-3 py-2 text-sm rounded-xl border border-border bg-cream/50 focus:bg-white focus:outline-none focus:border-sage" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold uppercase text-ink mb-1">Nama Penerima</label>
+                  <input type="text" x-model="newAddr.recipient_name" required placeholder="Nama penerima" class="w-full px-3 py-2 text-sm rounded-xl border border-border bg-cream/50 focus:bg-white focus:outline-none focus:border-sage" />
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold uppercase text-ink mb-1">Nomor HP</label>
+                <input type="tel" x-model="newAddr.phone" required placeholder="081234567890" class="w-full px-3 py-2 text-sm rounded-xl border border-border bg-cream/50 focus:bg-white focus:outline-none focus:border-sage" />
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold uppercase text-ink mb-1">Zona Pengiriman</label>
+                <select x-model="newAddr.shipping_zone_id" required class="w-full px-3 py-2 text-sm rounded-xl border border-border bg-cream/50 focus:bg-white focus:outline-none focus:border-sage cursor-pointer">
+                  <option value="" disabled>Pilih Zona Pengiriman...</option>
+                  <template x-for="z in shippingZonesList" :key="z.id">
+                    <option :value="z.id" x-text="`${z.name} — ${formatPrice(z.cost)}`"></option>
+                  </template>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold uppercase text-ink mb-1">Alamat Lengkap</label>
+                <textarea x-model="newAddr.address" required rows="2" placeholder="Nama jalan, nomor rumah, RT/RW" class="w-full px-3 py-2 text-sm rounded-xl border border-border bg-cream/50 focus:bg-white focus:outline-none focus:border-sage"></textarea>
+              </div>
+
+              <div class="grid grid-cols-3 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold uppercase text-ink mb-1">Kota / Kab</label>
+                  <input type="text" x-model="newAddr.city" required placeholder="Kota" class="w-full px-3 py-2 text-sm rounded-xl border border-border bg-cream/50 focus:bg-white focus:outline-none focus:border-sage" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold uppercase text-ink mb-1">Provinsi</label>
+                  <input type="text" x-model="newAddr.province" required placeholder="Provinsi" class="w-full px-3 py-2 text-sm rounded-xl border border-border bg-cream/50 focus:bg-white focus:outline-none focus:border-sage" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold uppercase text-ink mb-1">Kode Pos</label>
+                  <input type="text" x-model="newAddr.postal_code" placeholder="Kode Pos" class="w-full px-3 py-2 text-sm rounded-xl border border-border bg-cream/50 focus:bg-white focus:outline-none focus:border-sage" />
+                </div>
+              </div>
+
+              <div class="flex justify-end gap-3 pt-2">
+                <button type="submit" :disabled="savingAddress" class="px-6 py-2.5 rounded-xl bg-sage text-white text-xs font-semibold hover:bg-sage-deep disabled:opacity-50 transition-colors shadow-sm cursor-pointer">
+                  <span x-text="savingAddress ? 'Menyimpan...' : 'Simpan & Gunakan'"></span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+        </section>
+
+        <!-- SECTION 2: METODE PEMBAYARAN -->
+        <section id="section-payment" class="bg-white rounded-3xl border p-6 sm:p-8 shadow-sm transition-all" :class="hasPaymentError ? 'border-red-500 ring-2 ring-red-200' : 'border-border'">
+          <h2 class="font-display text-2xl font-semibold text-ink mb-6">2. Metode Pembayaran</h2>
+          
+          <div class="space-y-3">
+            
+            <!-- TRANSFER BANK -->
+            <template x-if="bankAccounts.length > 0">
+              <div class="rounded-2xl border transition-all overflow-hidden" :class="selectedPaymentType === 'transfer' ? 'border-sage bg-sage/5' : 'border-border bg-white'">
+                <label class="flex items-center gap-3 p-4 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="payment_type"
+                    value="transfer"
+                    x-model="selectedPaymentType"
+                    @change="hasPaymentError = false"
+                    class="w-4 h-4 text-sage border-border focus:ring-sage/30 accent-sage cursor-pointer"
+                  />
+                  <span class="font-semibold text-sm text-ink">Transfer Bank</span>
+                </label>
+
+                <!-- List Rekening Bank Expand -->
+                <div x-show="selectedPaymentType === 'transfer'" class="px-4 pb-4 pt-1 space-y-2 border-t border-sage/20 bg-white/60">
+                  <p class="text-xs text-stone mb-2">Pilih salah satu rekening tujuan transfer:</p>
+                  <template x-for="bank in bankAccounts" :key="bank.id">
+                    <label class="flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer" :class="selectedBankId === bank.id ? 'border-sage bg-sage/10' : 'border-border bg-white hover:border-sage/40'">
+                      <input
+                        type="radio"
+                        name="bank_choice"
+                        :value="bank.id"
+                        x-model="selectedBankId"
+                        class="w-3.5 h-3.5 text-sage accent-sage cursor-pointer"
+                      />
+                      <div class="text-xs">
+                        <span class="font-bold text-ink" x-text="bank.bank_name"></span>
+                        <span class="text-stone mx-1.5">—</span>
+                        <span class="font-mono text-ink font-semibold" x-text="bank.account_number"></span>
+                        <span class="text-stone font-normal" x-text="` a.n ${bank.account_name}`"></span>
+                      </div>
+                    </label>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <!-- QRIS -->
+            <template x-if="settings.payment_qris_image_url || settings.payment_qris_name">
+              <div class="rounded-2xl border transition-all overflow-hidden" :class="selectedPaymentType === 'qris' ? 'border-sage bg-sage/5' : 'border-border bg-white'">
+                <label class="flex items-center gap-3 p-4 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="payment_type"
+                    value="qris"
+                    x-model="selectedPaymentType"
+                    @change="hasPaymentError = false"
+                    class="w-4 h-4 text-sage border-border focus:ring-sage/30 accent-sage cursor-pointer"
+                  />
+                  <span class="font-semibold text-sm text-ink">QRIS (Semua E-Wallet / Mobile Banking)</span>
+                </label>
+
+                <div x-show="selectedPaymentType === 'qris'" class="px-4 pb-4 pt-2 border-t border-sage/20 bg-white/60 flex items-center gap-4" style="display:none;">
+                  <template x-if="settings.payment_qris_image_url">
+                    <img :src="settings.payment_qris_image_url" alt="QRIS Code" class="w-20 h-20 object-contain rounded-lg border border-border bg-white p-1" />
+                  </template>
+                  <div class="text-xs">
+                    <p class="font-semibold text-ink" x-text="settings.payment_qris_name || 'Giva Store'"></p>
+                    <p class="text-stone mt-1">Scan kode QR di atas setelah pesanan berhasil dibuat.</p>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- GOPAY -->
+            <template x-if="settings.payment_gopay">
+              <label class="flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer" :class="selectedPaymentType === 'gopay' ? 'border-sage bg-sage/5' : 'border-border bg-white hover:border-sage/40'">
+                <div class="flex items-center gap-3">
+                  <input type="radio" name="payment_type" value="gopay" x-model="selectedPaymentType" @change="hasPaymentError = false" class="w-4 h-4 text-sage accent-sage cursor-pointer" />
+                  <span class="font-semibold text-sm text-ink">GoPay</span>
+                </div>
+                <span class="text-xs font-mono text-stone" x-text="settings.payment_gopay"></span>
+              </label>
+            </template>
+
+            <!-- OVO -->
+            <template x-if="settings.payment_ovo">
+              <label class="flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer" :class="selectedPaymentType === 'ovo' ? 'border-sage bg-sage/5' : 'border-border bg-white hover:border-sage/40'">
+                <div class="flex items-center gap-3">
+                  <input type="radio" name="payment_type" value="ovo" x-model="selectedPaymentType" @change="hasPaymentError = false" class="w-4 h-4 text-sage accent-sage cursor-pointer" />
+                  <span class="font-semibold text-sm text-ink">OVO</span>
+                </div>
+                <span class="text-xs font-mono text-stone" x-text="settings.payment_ovo"></span>
+              </label>
+            </template>
+
+            <!-- DANA -->
+            <template x-if="settings.payment_dana">
+              <label class="flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer" :class="selectedPaymentType === 'dana' ? 'border-sage bg-sage/5' : 'border-border bg-white hover:border-sage/40'">
+                <div class="flex items-center gap-3">
+                  <input type="radio" name="payment_type" value="dana" x-model="selectedPaymentType" @change="hasPaymentError = false" class="w-4 h-4 text-sage accent-sage cursor-pointer" />
+                  <span class="font-semibold text-sm text-ink">DANA</span>
+                </div>
+                <span class="text-xs font-mono text-stone" x-text="settings.payment_dana"></span>
+              </label>
+            </template>
+
+          </div>
+
+          <div class="mt-5 p-3.5 rounded-2xl bg-sand/40 border border-border flex items-start gap-2.5 text-xs text-stone leading-relaxed">
+            <svg class="w-4 h-4 text-sage flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>Setelah order dibuat, selesaikan pembayaran dan upload bukti di halaman <strong>Pesanan Saya</strong>.</span>
+          </div>
+
+        </section>
+
+      </div>
+
+      <!-- KOLOM KANAN (RINGKASAN PESANAN: 40% / 5 cols STICKY DESKTOP) -->
+      <div class="lg:col-span-5">
+        <div class="sticky top-6 bg-white rounded-3xl border border-border p-6 sm:p-8 shadow-sm space-y-6">
+          
+          <h2 class="font-display text-2xl font-semibold text-ink" x-text="`Ringkasan Pesanan (${cartCount} item)`"></h2>
+
+          <!-- List Items Ringkasan (Gambar 40x53px) -->
+          <div class="space-y-3 max-h-[320px] overflow-y-auto pr-1 divide-y divide-border">
+            <template x-for="item in cartItems" :key="item.cartKey || (item.product_id + '-' + item.variant_id)">
+              <div class="pt-3 first:pt-0 flex items-center gap-3">
+                <div class="w-10 h-[53px] bg-sand rounded-lg overflow-hidden flex-shrink-0 border border-border">
+                  <template x-if="item.image_url">
+                    <img :src="item.image_url" :alt="item.name" class="w-full h-full object-cover" />
+                  </template>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h4 class="text-xs font-semibold text-ink truncate" x-text="item.name"></h4>
+                  <template x-if="item.color_name">
+                    <p class="text-[11px] text-stone truncate" x-text="`Warna: ${item.color_name}`"></p>
+                  </template>
+                  <p class="text-[11px] text-stone" x-text="`Qty: ${item.qty} × ${formatPrice(item.price || item.sell_price)}`"></p>
+                </div>
+                <span class="text-xs font-semibold text-ink" x-text="formatPrice((item.price || item.sell_price || 0) * item.qty)"></span>
+              </div>
+            </template>
+          </div>
+
+          <div class="border-t border-border pt-4 space-y-2.5 text-xs sm:text-sm">
+            <div class="flex justify-between text-stone">
+              <span>Subtotal Produk</span>
+              <span class="font-semibold text-ink" x-text="formatPrice(cartSubtotal)"></span>
+            </div>
+
+            <!-- Ongkir Calculation -->
+            <div class="flex justify-between items-center text-stone">
+              <span>Ongkos Kirim</span>
+              <template x-if="!selectedAddressId">
+                <span class="text-xs text-stone italic">Pilih alamat untuk hitung ongkir</span>
+              </template>
+              <template x-if="selectedAddressId">
+                <div class="text-right">
+                  <template x-if="isFreeShipping">
+                    <div class="flex items-center gap-1.5 justify-end">
+                      <span class="line-through text-stone text-xs" x-text="formatPrice(shippingCost)"></span>
+                      <span class="font-bold text-sage-deep">GRATIS 🎉</span>
+                    </div>
+                  </template>
+                  <template x-if="!isFreeShipping">
+                    <span class="font-semibold text-ink" x-text="formatPrice(shippingCost)"></span>
+                  </template>
+                </div>
+              </template>
+            </div>
+
+            <!-- Progress bar gratis ongkir (kalau belum gratis & zona ada threshold) -->
+            <template x-if="selectedZone && selectedZone.free_shipping_min_order && !isFreeShipping">
+              <div class="p-2.5 rounded-xl bg-sand/50 border border-border text-[11px] space-y-1.5">
+                <p class="text-stone">
+                  Tambah <span class="font-bold text-ink" x-text="formatPrice(selectedZone.free_shipping_min_order - cartSubtotal)"></span> lagi untuk gratis ongkir [<span x-text="selectedZone.name"></span>]
+                </p>
+                <div class="h-1.5 w-full bg-border rounded-full overflow-hidden">
+                  <div class="h-full bg-sage" :style="`width: ${Math.min((cartSubtotal / selectedZone.free_shipping_min_order) * 100, 100)}%`"></div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- Total Akhir -->
+          <div class="border-t border-border pt-4 flex items-end justify-between">
+            <span class="font-semibold text-ink text-sm sm:text-base">Total Akhir</span>
+            <span class="font-display text-3xl font-semibold text-ink" x-text="formatPrice(totalAmount)"></span>
+          </div>
+
+          <!-- Tombol Buat Pesanan -->
+          <button
+            type="button"
+            @click="submitOrder"
+            :disabled="submitting"
+            class="w-full py-4 rounded-2xl bg-sage text-white font-semibold text-sm sm:text-base hover:bg-sage-deep disabled:opacity-50 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <template x-if="submitting">
+              <svg class="animate-spin w-5 h-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            </template>
+            <span x-text="submitting ? 'Membuat pesanan...' : 'Buat Pesanan'"></span>
+          </button>
+
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Stock Warning Modal -->
+  <div x-show="stockWarningModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none;">
+    <div class="absolute inset-0 bg-ink/40 backdrop-blur-sm" @click="stockWarningModal.show = false"></div>
+    <div class="relative w-full max-w-sm bg-white rounded-3xl shadow-xl border border-border p-6 text-center space-y-4">
+      <div class="w-14 h-14 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+      </div>
+      
+      <div>
+        <h3 class="font-display text-xl font-semibold text-ink mb-1">Stok Berubah</h3>
+        <p class="text-xs text-stone leading-relaxed">
+          Stok <span class="font-semibold text-ink" x-text="stockWarningModal.item?.name"></span>
+          <template x-if="stockWarningModal.item?.color_name">
+            <span x-text="` (${stockWarningModal.item.color_name})`"></span>
+          </template>
+          tersisa <span class="font-bold text-amber-600" x-text="stockWarningModal.available"></span>. Lanjutkan?
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-2 pt-2">
+        <button
+          type="button"
+          @click="continueWithStockAdjustment()"
+          class="w-full py-2.5 rounded-xl bg-sage text-white font-semibold text-xs hover:bg-sage-deep transition-colors cursor-pointer"
+        >
+          Ya, Lanjutkan
+        </button>
+        <button
+          type="button"
+          @click="stockWarningModal.show = false; cartDrawerOpen = true;"
+          class="w-full py-2.5 rounded-xl border border-border bg-white text-ink font-semibold text-xs hover:bg-sand transition-colors cursor-pointer"
+        >
+          Ubah Keranjang
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="bg-cream border-t border-border py-6 mt-12 text-center text-xs text-stone">
+    <p>&copy; 2026 Giva Store. Hak Cipta Dilindungi.</p>
+  </footer>
+
+  <script type="module" src="/src/toko/checkout.js"></script>
+</body>
+</html>

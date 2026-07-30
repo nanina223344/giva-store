@@ -1,0 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #FAF8F3;
+  --color-sand: #F0ECE3;
+  --color-sage: #8FA07E;
+  --color-sage-deep: #6B7D5C;
+  --color-ink: #232019;
+  --color-stone: #84807A;
+  --color-border: #E2DED3;
+
+  --font-display: "Cormorant Garamond", serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+
+  /* Custom grid column counts */
+  --grid-template-columns-13: repeat(13, minmax(0, 1fr));
+}
+
+@layer base {
+  [x-cloak] {
+    display: none !important;
+  }
+}
