@@ -1,3 +1,6 @@
+cat > vercel.json << 'EOF'
 {
+  "outputDirectory": "dist",
   "cleanUrls": false
 }
+EOF
