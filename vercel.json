@@ -1,17 +1,13 @@
 cat > vercel.json << 'EOF'
 {
-    "rewrites": [
+    "version": 2,
+    "builds": [
         {
-            "source": "/admin/:path*",
-            "destination": "/admin/:path*"
-        },
-        {
-            "source": "/kasir/:path*",
-            "destination": "/kasir/:path*"
-        },
-        {
-            "source": "/toko/:path*",
-            "destination": "/toko/:path*"
+            "src": "package.json",
+            "use": "@vercel/static-build",
+            "config": {
+                "distDir": "dist"
+            }
         }
     ]
 }
