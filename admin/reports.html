@@ -44,26 +44,37 @@
         </div>
 
         <!-- Date Range Filter Picker Header -->
-        <div class="flex items-center gap-2 text-xs text-stone bg-white p-2 rounded-2xl border border-border shadow-sm flex-wrap">
-          <span class="font-semibold text-ink pl-1">Periode:</span>
-          <input
-            type="date"
-            x-model="startDate"
-            class="px-3 py-1.5 rounded-xl border border-border bg-cream/30 focus:bg-white focus:outline-none focus:border-sage font-medium cursor-pointer"
-          />
-          <span>s/d</span>
-          <input
-            type="date"
-            x-model="endDate"
-            class="px-3 py-1.5 rounded-xl border border-border bg-cream/30 focus:bg-white focus:outline-none focus:border-sage font-medium cursor-pointer"
-          />
-          <button
-            type="button"
-            @click="fetchAllReportsData()"
-            class="px-4 py-1.5 rounded-xl bg-sage hover:bg-sage-deep text-white font-semibold shadow-sm transition-colors cursor-pointer"
-          >
-            Terapkan
-          </button>
+        <div class="flex flex-col gap-2 items-end">
+          <div class="flex items-center gap-2 text-xs text-stone bg-white p-2 rounded-2xl border border-border shadow-sm flex-wrap">
+            <span class="font-semibold text-ink pl-1">Periode:</span>
+            <input
+              type="date"
+              x-model="startDate"
+              class="px-3 py-1.5 rounded-xl border border-border bg-cream/30 focus:bg-white focus:outline-none focus:border-sage font-medium cursor-pointer"
+            />
+            <span>s/d</span>
+            <input
+              type="date"
+              x-model="endDate"
+              class="px-3 py-1.5 rounded-xl border border-border bg-cream/30 focus:bg-white focus:outline-none focus:border-sage font-medium cursor-pointer"
+            />
+            <button
+              type="button"
+              @click="fetchAllReportsData()"
+              class="px-4 py-1.5 rounded-xl bg-sage hover:bg-sage-deep text-white font-semibold shadow-sm transition-colors cursor-pointer"
+            >
+              Terapkan
+            </button>
+          </div>
+
+          <!-- Date Shortcuts -->
+          <div class="flex items-center gap-1.5 flex-wrap text-[11px]">
+            <button @click="setPresetToday()" class="px-2.5 py-1 rounded-lg border border-border hover:bg-sage/10 hover:border-sage/30 text-stone hover:text-sage-deep font-medium transition-all cursor-pointer">Hari Ini</button>
+            <button @click="setPreset7Days()" class="px-2.5 py-1 rounded-lg border border-border hover:bg-sage/10 hover:border-sage/30 text-stone hover:text-sage-deep font-medium transition-all cursor-pointer">7 Hari</button>
+            <button @click="setPresetThisMonth()" class="px-2.5 py-1 rounded-lg border border-border hover:bg-sage/10 hover:border-sage/30 text-stone hover:text-sage-deep font-medium transition-all cursor-pointer">Bulan Ini</button>
+            <button @click="setPresetLastMonth()" class="px-2.5 py-1 rounded-lg border border-border hover:bg-sage/10 hover:border-sage/30 text-stone hover:text-sage-deep font-medium transition-all cursor-pointer">Bulan Lalu</button>
+            <button @click="setPresetThisYear()" class="px-2.5 py-1 rounded-lg border border-border hover:bg-sage/10 hover:border-sage/30 text-stone hover:text-sage-deep font-medium transition-all cursor-pointer">Tahun Ini</button>
+          </div>
         </div>
       </header>
 
@@ -105,7 +116,7 @@
             :class="activeTab === 'pembelian' ? 'border-sage text-sage-deep bg-sage/10 font-bold' : 'border-transparent text-stone hover:text-ink font-medium'"
             class="px-4 py-2.5 rounded-xl text-xs whitespace-nowrap transition-all border cursor-pointer"
           >
-            Pembelian & Laba
+            Pembelian
           </button>
           <button
             @click="activeTab = 'stok'"
@@ -134,7 +145,12 @@
               
               <!-- Card 1: Total Pendapatan -->
               <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-2">
-                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Total Pendapatan</p>
+                <div class="flex items-center justify-between">
+                  <p class="text-xs font-semibold text-stone uppercase tracking-wider">Total Pendapatan</p>
+                  <div class="w-9 h-9 rounded-xl bg-sage/10 flex items-center justify-center">
+                    <svg class="w-4.5 h-4.5 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  </div>
+                </div>
                 <h3 class="font-display text-2xl font-bold text-ink" x-text="formatPrice(metrics.totalRevenue)"></h3>
                 <div class="flex items-center gap-1.5 text-xs font-semibold" :class="metrics.pctRevenue >= 0 ? 'text-emerald-700' : 'text-red-600'">
                   <span x-text="metrics.pctRevenue >= 0 ? `+${metrics.pctRevenue}%` : `${metrics.pctRevenue}%`"></span>
@@ -144,7 +160,12 @@
 
               <!-- Card 2: Total Pesanan -->
               <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-2">
-                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Total Pesanan</p>
+                <div class="flex items-center justify-between">
+                  <p class="text-xs font-semibold text-stone uppercase tracking-wider">Total Pesanan</p>
+                  <div class="w-9 h-9 rounded-xl bg-sage/10 flex items-center justify-center">
+                    <svg class="w-4.5 h-4.5 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                  </div>
+                </div>
                 <h3 class="font-display text-2xl font-bold text-ink" x-text="`${metrics.totalOrders} Transaksi`"></h3>
                 <div class="flex items-center gap-1.5 text-xs font-semibold" :class="metrics.pctOrders >= 0 ? 'text-emerald-700' : 'text-red-600'">
                   <span x-text="metrics.pctOrders >= 0 ? `+${metrics.pctOrders}%` : `${metrics.pctOrders}%`"></span>
@@ -154,7 +175,12 @@
 
               <!-- Card 3: Rata-rata Nilai Pesanan -->
               <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-2">
-                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Rata-rata Pesanan</p>
+                <div class="flex items-center justify-between">
+                  <p class="text-xs font-semibold text-stone uppercase tracking-wider">Rata-rata Pesanan</p>
+                  <div class="w-9 h-9 rounded-xl bg-sage/10 flex items-center justify-center">
+                    <svg class="w-4.5 h-4.5 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                  </div>
+                </div>
                 <h3 class="font-display text-2xl font-bold text-ink" x-text="formatPrice(metrics.avgOrderValue)"></h3>
                 <div class="flex items-center gap-1.5 text-xs font-semibold" :class="metrics.pctAvgOrder >= 0 ? 'text-emerald-700' : 'text-red-600'">
                   <span x-text="metrics.pctAvgOrder >= 0 ? `+${metrics.pctAvgOrder}%` : `${metrics.pctAvgOrder}%`"></span>
@@ -164,7 +190,12 @@
 
               <!-- Card 4: Total Item Terjual -->
               <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-2">
-                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Total Item Terjual</p>
+                <div class="flex items-center justify-between">
+                  <p class="text-xs font-semibold text-stone uppercase tracking-wider">Total Item Terjual</p>
+                  <div class="w-9 h-9 rounded-xl bg-sage/10 flex items-center justify-center">
+                    <svg class="w-4.5 h-4.5 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                  </div>
+                </div>
                 <h3 class="font-display text-2xl font-bold text-ink" x-text="`${metrics.totalItemsSold} Qty`"></h3>
                 <div class="flex items-center gap-1.5 text-xs font-semibold" :class="metrics.pctItems >= 0 ? 'text-emerald-700' : 'text-red-600'">
                   <span x-text="metrics.pctItems >= 0 ? `+${metrics.pctItems}%` : `${metrics.pctItems}%`"></span>
@@ -253,9 +284,9 @@
                   <span class="text-stone font-medium">Status:</span>
                   <select x-model="salesFilterStatus" class="px-3 py-1.5 rounded-xl border border-border bg-cream/30 text-xs font-semibold cursor-pointer">
                     <option value="all">Semua Status</option>
-                    <option value="paid">Lunas / Paid</option>
-                    <option value="unpaid">Belum Lunas</option>
-                    <option value="failed">Gagal / Ditolak</option>
+                    <option value="paid">Lunas</option>
+                    <option value="unpaid">Menunggu</option>
+                    <option value="cancelled">Dibatalkan</option>
                   </select>
                 </div>
 
@@ -290,6 +321,7 @@
                       <th class="py-3.5 px-4">No. Transaksi</th>
                       <th class="py-3.5 px-4">Channel</th>
                       <th class="py-3.5 px-4">Customer / Kasir</th>
+                      <th class="py-3.5 px-4 text-center">Produk</th>
                       <th class="py-3.5 px-4">Total</th>
                       <th class="py-3.5 px-4">Metode Bayar</th>
                       <th class="py-3.5 px-4">Status</th>
@@ -303,13 +335,20 @@
                         <td class="py-4 px-4 text-stone font-medium whitespace-nowrap" x-text="formatDate(sale.created_at)"></td>
                         <td class="py-4 px-4 font-mono font-bold text-ink" x-text="`#${sale.id.substring(0,8).toUpperCase()}`"></td>
                         <td class="py-4 px-4 whitespace-nowrap">
-                          <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase" :class="sale.channel === 'pos' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'" x-text="sale.channel === 'pos' ? 'Kasir (POS)' : 'Online'"></span>
+                          <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase" :class="sale.channel === 'pos' ? 'bg-sage/15 text-sage-deep' : 'bg-blue-100 text-blue-800'" x-text="sale.channel === 'pos' ? 'Kasir' : 'Online'"></span>
                         </td>
                         <td class="py-4 px-4 font-semibold text-ink" x-text="sale.customers?.name || sale.staff?.name || 'Walk-in Customer'"></td>
+                        <td class="py-4 px-4 text-center text-stone font-medium" x-text="`${getSaleItemCount(sale.id)} item`"></td>
                         <td class="py-4 px-4 font-semibold text-ink whitespace-nowrap" x-text="formatPrice(sale.total_amount)"></td>
                         <td class="py-4 px-4 text-stone font-medium" x-text="(sale.payments && sale.payments[0]) ? sale.payments[0].method : 'Cash'"></td>
                         <td class="py-4 px-4 whitespace-nowrap">
-                          <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase" :class="sale.payment_status === 'paid' ? 'bg-sage/15 text-sage-deep' : 'bg-amber-100 text-amber-800'" x-text="sale.payment_status === 'paid' ? 'Paid' : 'Unpaid'"></span>
+                          <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase"
+                            :class="{
+                              'bg-sage/15 text-sage-deep': sale.payment_status === 'paid',
+                              'bg-amber-100 text-amber-800': sale.payment_status === 'unpaid' || sale.payment_status === 'pending',
+                              'bg-red-100 text-red-700': sale.payment_status === 'failed' || sale.order_status === 'cancelled'
+                            }"
+                            x-text="sale.order_status === 'cancelled' ? 'Dibatalkan' : (sale.payment_status === 'paid' ? 'Lunas' : 'Menunggu')"></span>
                         </td>
                         <td class="py-4 px-4 text-right">
                           <button @click="openSaleDetail(sale)" class="px-3 py-1 rounded-lg border border-sage text-sage-deep font-semibold text-xs hover:bg-sage/10 cursor-pointer">Detail</button>
@@ -318,7 +357,10 @@
                     </template>
 
                     <template x-if="paginatedSales.length === 0">
-                      <tr><td colspan="8" class="py-12 text-center text-stone">Tidak ada transaksi penjualan yang cocok.</td></tr>
+                      <tr><td colspan="9" class="py-12 text-center text-stone">
+                        <svg class="w-10 h-10 mx-auto text-border mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                        Tidak ada transaksi penjualan dalam periode ini.
+                      </td></tr>
                     </template>
                   </tbody>
                 </table>
@@ -342,73 +384,79 @@
           ═══════════════════════════════════════════════════════════ -->
           <div x-show="activeTab === 'produk'" class="space-y-6">
             
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- 1. Top 20 Produk Terlaris -->
+            <div class="p-6 rounded-2xl bg-white border border-border shadow-sm space-y-4">
+              <h3 class="font-display text-lg font-semibold text-ink">Produk Terlaris (Top 20)</h3>
               
-              <!-- 1. Top 20 Produk Terlaris -->
-              <div class="p-6 rounded-2xl bg-white border border-border shadow-sm space-y-4">
-                <h3 class="font-display text-lg font-semibold text-ink">Produk Terlaris (Top 20)</h3>
-                
-                <div class="overflow-x-auto">
-                  <table class="w-full text-left text-xs">
-                    <thead class="bg-sand/40 text-stone uppercase tracking-wider border-b border-border font-semibold">
-                      <tr>
-                        <th class="py-2.5 px-3">#</th>
-                        <th class="py-2.5 px-3">Nama Produk</th>
-                        <th class="py-2.5 px-3">Kategori</th>
-                        <th class="py-2.5 px-3 text-center">Terjual</th>
-                        <th class="py-2.5 px-3 text-right">Pendapatan</th>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-sand/40 text-stone uppercase tracking-wider border-b border-border font-semibold">
+                    <tr>
+                      <th class="py-2.5 px-3">#</th>
+                      <th class="py-2.5 px-3">Nama Produk</th>
+                      <th class="py-2.5 px-3">Brand</th>
+                      <th class="py-2.5 px-3">Kategori</th>
+                      <th class="py-2.5 px-3 text-center">Terjual</th>
+                      <th class="py-2.5 px-3 text-right">Pendapatan</th>
+                      <th class="py-2.5 px-3 text-right">Stok Tersedia</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-border">
+                    <template x-for="(prod, idx) in topProducts" :key="prod.id">
+                      <tr class="hover:bg-cream/40 transition-colors">
+                        <td class="py-3 px-3 font-bold text-stone" x-text="idx + 1"></td>
+                        <td class="py-3 px-3 font-semibold text-ink" x-text="prod.name"></td>
+                        <td class="py-3 px-3 text-stone" x-text="prod.brand || '-'"></td>
+                        <td class="py-3 px-3 text-stone" x-text="prod.category"></td>
+                        <td class="py-3 px-3 text-center font-bold text-sage-deep" x-text="`${prod.totalQty} qty`"></td>
+                        <td class="py-3 px-3 text-right font-semibold text-ink" x-text="formatPrice(prod.totalRev)"></td>
+                        <td class="py-3 px-3 text-right font-medium" :class="prod.currentStock <= 5 ? 'text-amber-700 font-bold' : 'text-stone'" x-text="`${prod.currentStock} pcs`"></td>
                       </tr>
-                    </thead>
-                    <tbody class="divide-y divide-border">
-                      <template x-for="(prod, idx) in topProducts" :key="prod.id">
-                        <tr>
-                          <td class="py-3 px-3 font-bold text-stone" x-text="idx + 1"></td>
-                          <td class="py-3 px-3">
-                            <p class="font-semibold text-ink" x-text="prod.name"></p>
-                            <p class="text-[10px] text-stone" x-text="prod.brand"></p>
-                          </td>
-                          <td class="py-3 px-3 text-stone" x-text="prod.category"></td>
-                          <td class="py-3 px-3 text-center font-bold text-sage-deep" x-text="`${prod.totalQty} qty`"></td>
-                          <td class="py-3 px-3 text-right font-semibold text-ink" x-text="formatPrice(prod.totalRev)"></td>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
-                </div>
+                    </template>
+                    <template x-if="topProducts.length === 0">
+                      <tr><td colspan="7" class="py-8 text-center text-stone">
+                        <svg class="w-8 h-8 mx-auto text-border mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" /></svg>
+                        Belum ada data penjualan produk di periode ini.
+                      </td></tr>
+                    </template>
+                  </tbody>
+                </table>
               </div>
+            </div>
 
-              <!-- 2. Terlaris per Warna -->
-              <div class="p-6 rounded-2xl bg-white border border-border shadow-sm space-y-4">
-                <h3 class="font-display text-lg font-semibold text-ink">Terlaris per Varian Warna</h3>
-                
-                <div class="overflow-x-auto">
-                  <table class="w-full text-left text-xs">
-                    <thead class="bg-sand/40 text-stone uppercase tracking-wider border-b border-border font-semibold">
-                      <tr>
-                        <th class="py-2.5 px-3">Produk & Warna</th>
-                        <th class="py-2.5 px-3 text-center">Terjual</th>
-                        <th class="py-2.5 px-3 text-right">Stok Saat Ini</th>
+            <!-- 2. Terlaris per Warna -->
+            <div class="p-6 rounded-2xl bg-white border border-border shadow-sm space-y-4">
+              <h3 class="font-display text-lg font-semibold text-ink">Terlaris per Varian Warna</h3>
+              
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-sand/40 text-stone uppercase tracking-wider border-b border-border font-semibold">
+                    <tr>
+                      <th class="py-2.5 px-3">Produk & Warna</th>
+                      <th class="py-2.5 px-3 text-center">Terjual</th>
+                      <th class="py-2.5 px-3 text-right">Stok Saat Ini</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-border">
+                    <template x-for="c in topVariantColors" :key="c.variant_id">
+                      <tr class="hover:bg-cream/40 transition-colors">
+                        <td class="py-3 px-3">
+                          <p class="font-semibold text-ink" x-text="c.product_name"></p>
+                          <div class="flex items-center gap-1.5 mt-0.5">
+                            <span class="w-3 h-3 rounded-full border border-border flex-shrink-0" :style="`background-color: ${c.hex_code}`"></span>
+                            <span class="text-[11px] text-stone" x-text="c.color_name"></span>
+                          </div>
+                        </td>
+                        <td class="py-3 px-3 text-center font-bold text-sage-deep" x-text="`${c.totalQty} qty`"></td>
+                        <td class="py-3 px-3 text-right font-semibold text-ink" x-text="`${c.currentStock} pcs`"></td>
                       </tr>
-                    </thead>
-                    <tbody class="divide-y divide-border">
-                      <template x-for="c in topVariantColors" :key="c.variant_id">
-                        <tr>
-                          <td class="py-3 px-3">
-                            <p class="font-semibold text-ink" x-text="c.product_name"></p>
-                            <div class="flex items-center gap-1.5 mt-0.5">
-                              <span class="w-2.5 h-2.5 rounded-full border border-border" :style="`background-color: ${c.hex_code}`"></span>
-                              <span class="text-[11px] text-stone" x-text="c.color_name"></span>
-                            </div>
-                          </td>
-                          <td class="py-3 px-3 text-center font-bold text-sage-deep" x-text="`${c.totalQty} qty`"></td>
-                          <td class="py-3 px-3 text-right font-semibold text-ink" x-text="`${c.currentStock} pcs`"></td>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
-                </div>
+                    </template>
+                    <template x-if="topVariantColors.length === 0">
+                      <tr><td colspan="3" class="py-8 text-center text-stone">Belum ada data varian warna terjual.</td></tr>
+                    </template>
+                  </tbody>
+                </table>
               </div>
-
             </div>
 
             <!-- 3. Produk Tidak Bergerak -->
@@ -420,16 +468,26 @@
                     <tr>
                       <th class="py-2.5 px-3">Nama Produk</th>
                       <th class="py-2.5 px-3">Kategori</th>
+                      <th class="py-2.5 px-3">Brand</th>
                       <th class="py-2.5 px-3 text-right">Stok Tersedia</th>
+                      <th class="py-2.5 px-3 text-right">Terakhir Terjual</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-border">
                     <template x-for="nm in nonMovingProducts" :key="nm.id">
-                      <tr>
+                      <tr class="hover:bg-cream/40 transition-colors">
                         <td class="py-3 px-3 font-semibold text-ink" x-text="nm.name"></td>
                         <td class="py-3 px-3 text-stone" x-text="nm.category"></td>
+                        <td class="py-3 px-3 text-stone" x-text="nm.brand || '-'"></td>
                         <td class="py-3 px-3 text-right font-bold text-amber-700" x-text="`${nm.currentStock} pcs`"></td>
+                        <td class="py-3 px-3 text-right text-stone" x-text="nm.lastSoldDate ? formatDate(nm.lastSoldDate) : 'Belum pernah'"></td>
                       </tr>
+                    </template>
+                    <template x-if="nonMovingProducts.length === 0">
+                      <tr><td colspan="5" class="py-8 text-center text-stone">
+                        <svg class="w-8 h-8 mx-auto text-sage/30 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Semua produk terjual di periode ini. 🎉
+                      </td></tr>
                     </template>
                   </tbody>
                 </table>
@@ -446,21 +504,36 @@
             <!-- Customer Metrics Cards -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-1">
-                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Customer Baru</p>
+                <div class="flex items-center justify-between">
+                  <p class="text-xs font-semibold text-stone uppercase tracking-wider">Customer Baru</p>
+                  <div class="w-8 h-8 rounded-xl bg-sage/10 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                  </div>
+                </div>
                 <h3 class="font-display text-2xl font-bold text-ink" x-text="`${customerMetrics.newCustomers} Orang`"></h3>
                 <p class="text-[11px] text-stone">Terdaftar di periode ini</p>
               </div>
 
               <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-1">
-                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Aktif Belanja</p>
-                <h3 class="font-display text-2xl font-bold text-ink" x-text="`${customerMetrics.purchasingCustomers} Orang`"></h3>
+                <div class="flex items-center justify-between">
+                  <p class="text-xs font-semibold text-stone uppercase tracking-wider">Customer Aktif</p>
+                  <div class="w-8 h-8 rounded-xl bg-sage/10 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  </div>
+                </div>
+                <h3 class="font-display text-2xl font-bold text-ink" x-text="`${customerMetrics.activeCustomers} Orang`"></h3>
                 <p class="text-[11px] text-stone">Melakukan transaksi</p>
               </div>
 
               <div class="p-5 rounded-2xl bg-white border border-border shadow-sm space-y-1">
-                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Customer Paling Aktif</p>
-                <h3 class="font-semibold text-ink text-sm truncate" x-text="customerMetrics.mostActiveName"></h3>
-                <p class="text-[11px] text-stone">Transaksi terbanyak</p>
+                <div class="flex items-center justify-between">
+                  <p class="text-xs font-semibold text-stone uppercase tracking-wider">Repeat Buyer</p>
+                  <div class="w-8 h-8 rounded-xl bg-sage/10 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  </div>
+                </div>
+                <h3 class="font-display text-2xl font-bold text-ink" x-text="`${customerMetrics.repeatBuyers} Orang`"></h3>
+                <p class="text-[11px] text-stone">Beli lebih dari 1× di periode ini</p>
               </div>
             </div>
 
@@ -510,6 +583,9 @@
                         </td>
                       </tr>
                     </template>
+                    <template x-if="filteredCustomerReportList.length === 0">
+                      <tr><td colspan="6" class="py-12 text-center text-stone">Tidak ada data pelanggan yang cocok.</td></tr>
+                    </template>
                   </tbody>
                 </table>
               </div>
@@ -542,7 +618,7 @@
             <div class="p-6 rounded-2xl bg-sand/30 border border-border shadow-sm space-y-4">
               <div class="flex items-center justify-between flex-wrap gap-2">
                 <h3 class="font-display text-xl font-semibold text-ink">Perhitungan Laba Kotor Sederhana</h3>
-                <span class="text-xs text-stone italic">*Tidak termasuk biaya operasional (sewa, gaji, listrik)</span>
+                <span class="text-xs text-stone italic">*Belum termasuk biaya operasional dan pengeluaran lainnya</span>
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2">
@@ -556,11 +632,11 @@
                 </div>
                 <div class="p-4 rounded-xl bg-white border border-border space-y-1">
                   <span class="text-xs text-stone font-medium">Laba Kotor</span>
-                  <p class="font-display text-lg font-bold text-sage-deep" x-text="formatPrice(grossProfit.profit)"></p>
+                  <p class="font-display text-lg font-bold" :class="grossProfit.profit >= 0 ? 'text-sage-deep' : 'text-red-600'" x-text="formatPrice(grossProfit.profit)"></p>
                 </div>
                 <div class="p-4 rounded-xl bg-white border border-border space-y-1">
                   <span class="text-xs text-stone font-medium">Margin Laba Kotor</span>
-                  <p class="font-display text-lg font-bold text-sage-deep" x-text="`${grossProfit.marginPct}%`"></p>
+                  <p class="font-display text-lg font-bold" :class="grossProfit.marginPct >= 0 ? 'text-sage-deep' : 'text-red-600'" x-text="`${grossProfit.marginPct}%`"></p>
                 </div>
               </div>
             </div>
@@ -598,9 +674,17 @@
                         <td class="py-4 px-4 text-center font-semibold text-ink" x-text="`${po.total_items} Qty`"></td>
                         <td class="py-4 px-4 font-semibold text-ink" x-text="formatPrice(po.total_amount)"></td>
                         <td class="py-4 px-4">
-                          <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase" :class="po.status === 'received' ? 'bg-sage/15 text-sage-deep' : 'bg-amber-100 text-amber-800'" x-text="po.status"></span>
+                          <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase"
+                            :class="{
+                              'bg-sage/15 text-sage-deep': po.status === 'received',
+                              'bg-amber-100 text-amber-800': po.status === 'draft',
+                              'bg-red-100 text-red-700': po.status === 'cancelled'
+                            }" x-text="po.status"></span>
                         </td>
                       </tr>
+                    </template>
+                    <template x-if="filteredPurchaseOrdersList.length === 0">
+                      <tr><td colspan="6" class="py-12 text-center text-stone">Tidak ada purchase order dalam periode ini.</td></tr>
                     </template>
                   </tbody>
                 </table>
@@ -648,25 +732,32 @@
                     <thead class="bg-sand/40 border-b border-border text-stone uppercase tracking-wider font-semibold">
                       <tr>
                         <th class="py-2.5 px-3">Produk & Warna</th>
+                        <th class="py-2.5 px-3">Lokasi</th>
                         <th class="py-2.5 px-3 text-center">Tersedia</th>
+                        <th class="py-2.5 px-3 text-center">Dipesan</th>
                         <th class="py-2.5 px-3 text-right">Aksi</th>
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-border">
                       <template x-for="item in lowStockItems" :key="item.id">
-                        <tr>
+                        <tr class="hover:bg-cream/40 transition-colors">
                           <td class="py-3 px-3">
                             <p class="font-semibold text-ink" x-text="item.product_name"></p>
-                            <span class="text-[11px] text-stone" x-text="item.color_name"></span>
+                            <div class="flex items-center gap-1.5 mt-0.5">
+                              <span class="w-3 h-3 rounded-full border border-border flex-shrink-0" :style="`background-color: ${item.hex_code}`"></span>
+                              <span class="text-[11px] text-stone" x-text="item.color_name"></span>
+                            </div>
                           </td>
+                          <td class="py-3 px-3 text-stone text-[11px]" x-text="item.location"></td>
                           <td class="py-3 px-3 text-center font-bold text-amber-700" x-text="`${item.available} pcs`"></td>
+                          <td class="py-3 px-3 text-center text-stone font-medium" x-text="`${item.reserved} pcs`"></td>
                           <td class="py-3 px-3 text-right">
-                            <a href="/admin/stock.html" class="px-3 py-1 rounded-lg bg-sand hover:bg-border text-ink font-semibold text-xs">Koreksi</a>
+                            <a href="/admin/stock.html" class="px-3 py-1 rounded-lg bg-sand hover:bg-border text-ink font-semibold text-xs transition-colors">Koreksi</a>
                           </td>
                         </tr>
                       </template>
                       <template x-if="lowStockItems.length === 0">
-                        <tr><td colspan="3" class="py-6 text-center text-stone">Tidak ada stok yang menipis.</td></tr>
+                        <tr><td colspan="5" class="py-6 text-center text-stone">Tidak ada stok yang menipis.</td></tr>
                       </template>
                     </tbody>
                   </table>
@@ -685,25 +776,30 @@
                     <thead class="bg-sand/40 border-b border-border text-stone uppercase tracking-wider font-semibold">
                       <tr>
                         <th class="py-2.5 px-3">Produk & Warna</th>
-                        <th class="py-2.5 px-3 text-center">Status</th>
+                        <th class="py-2.5 px-3">Lokasi</th>
+                        <th class="py-2.5 px-3 text-center">Qty Total</th>
                         <th class="py-2.5 px-3 text-right">Aksi</th>
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-border">
                       <template x-for="item in outOfStockItems" :key="item.id">
-                        <tr>
+                        <tr class="hover:bg-cream/40 transition-colors">
                           <td class="py-3 px-3">
                             <p class="font-semibold text-ink" x-text="item.product_name"></p>
-                            <span class="text-[11px] text-stone" x-text="item.color_name"></span>
+                            <div class="flex items-center gap-1.5 mt-0.5">
+                              <span class="w-3 h-3 rounded-full border border-border flex-shrink-0" :style="`background-color: ${item.hex_code}`"></span>
+                              <span class="text-[11px] text-stone" x-text="item.color_name"></span>
+                            </div>
                           </td>
-                          <td class="py-3 px-3 text-center"><span class="px-2 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold uppercase">Habis</span></td>
+                          <td class="py-3 px-3 text-stone text-[11px]" x-text="item.location"></td>
+                          <td class="py-3 px-3 text-center font-medium text-stone" x-text="`${item.totalQty} pcs`"></td>
                           <td class="py-3 px-3 text-right">
-                            <a href="/admin/purchases.html" class="px-3 py-1 rounded-lg bg-sage hover:bg-sage-deep text-white font-semibold text-xs">Buat PO</a>
+                            <a href="/admin/purchases.html" class="px-3 py-1 rounded-lg bg-sage hover:bg-sage-deep text-white font-semibold text-xs transition-colors">Buat PO</a>
                           </td>
                         </tr>
                       </template>
                       <template x-if="outOfStockItems.length === 0">
-                        <tr><td colspan="3" class="py-6 text-center text-stone">Tidak ada stok yang habis.</td></tr>
+                        <tr><td colspan="4" class="py-6 text-center text-stone">Tidak ada stok yang habis.</td></tr>
                       </template>
                     </tbody>
                   </table>
@@ -714,7 +810,15 @@
 
             <!-- Log Pergerakan Stok -->
             <div class="p-6 rounded-2xl bg-white border border-border shadow-sm space-y-4">
-              <h3 class="font-display text-lg font-semibold text-ink">Log Pergerakan Stok</h3>
+              <div class="flex items-center justify-between flex-wrap gap-3">
+                <h3 class="font-display text-lg font-semibold text-ink">Log Pergerakan Stok</h3>
+                <input
+                  type="text"
+                  x-model="stockMovementSearch"
+                  placeholder="Cari nama produk..."
+                  class="px-4 py-2 text-xs rounded-xl border border-border bg-cream/40 focus:bg-white focus:outline-none focus:border-sage max-w-xs"
+                />
+              </div>
 
               <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs">
@@ -728,16 +832,30 @@
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-border">
-                    <template x-for="(log, idx) in stockMovementsLog" :key="idx">
+                    <template x-for="(log, idx) in filteredStockMovementsLog" :key="idx">
                       <tr class="hover:bg-cream/40 transition-colors">
                         <td class="py-3 px-4 text-stone font-medium" x-text="formatDate(log.date)"></td>
-                        <td class="py-3 px-4 font-semibold text-ink" x-text="`${log.product_name} (${log.color_name})`"></td>
                         <td class="py-3 px-4">
-                          <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase" :class="log.type === 'IN' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'" x-text="log.typeLabel"></span>
+                          <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full border border-border flex-shrink-0" :style="`background-color: ${log.hex_code || '#84807A'}`"></span>
+                            <div>
+                              <p class="font-semibold text-ink" x-text="log.product_name"></p>
+                              <p class="text-[11px] text-stone" x-text="log.color_name"></p>
+                            </div>
+                          </div>
                         </td>
-                        <td class="py-3 px-4 text-center font-bold" :class="log.type === 'IN' ? 'text-emerald-700' : 'text-amber-800'" x-text="log.type === 'IN' ? `+${log.qty}` : `-${log.qty}`"></td>
-                        <td class="py-3 px-4 font-mono text-stone" x-text="log.refCode"></td>
+                        <td class="py-3 px-4">
+                          <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase" :class="log.type === 'IN' ? 'bg-sage/15 text-sage-deep' : 'bg-amber-100 text-amber-800'" x-text="log.type === 'IN' ? 'Masuk' : 'Keluar'"></span>
+                        </td>
+                        <td class="py-3 px-4 text-center font-bold" :class="log.type === 'IN' ? 'text-sage-deep' : 'text-amber-800'" x-text="log.type === 'IN' ? `+${log.qty}` : `-${log.qty}`"></td>
+                        <td class="py-3 px-4 font-mono text-stone text-[11px]" x-text="log.refCode"></td>
                       </tr>
+                    </template>
+                    <template x-if="filteredStockMovementsLog.length === 0">
+                      <tr><td colspan="5" class="py-8 text-center text-stone">
+                        <svg class="w-8 h-8 mx-auto text-border mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" /></svg>
+                        Tidak ada pergerakan stok dalam periode ini.
+                      </td></tr>
                     </template>
                   </tbody>
                 </table>
@@ -773,10 +891,15 @@
           <h4 class="font-semibold text-ink uppercase tracking-wider mb-2">Daftar Item:</h4>
           <div class="space-y-2 border-t border-border pt-2">
             <template x-for="item in selectedSaleDetail?.items || []" :key="item.id">
-              <div class="flex items-center justify-between py-1">
+              <div class="flex items-center justify-between py-1.5">
                 <div>
                   <p class="font-semibold text-ink" x-text="item.products?.name || 'Produk'"></p>
-                  <p class="text-[11px] text-stone" x-text="`${item.quantity} × ${formatPrice(item.unit_price)}`"></p>
+                  <div class="flex items-center gap-2 mt-0.5">
+                    <span class="w-2.5 h-2.5 rounded-full border border-border" :style="`background-color: ${item.product_variants?.colors?.hex_code || '#84807A'}`"></span>
+                    <span class="text-[11px] text-stone" x-text="item.product_variants?.colors?.name || '-'"></span>
+                    <span class="text-[11px] text-stone">·</span>
+                    <span class="text-[11px] text-stone" x-text="`${item.quantity} × ${formatPrice(item.unit_price)}`"></span>
+                  </div>
                 </div>
                 <span class="font-semibold text-ink" x-text="formatPrice(item.subtotal)"></span>
               </div>

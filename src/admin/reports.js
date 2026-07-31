@@ -33,6 +33,9 @@ Alpine.data('reportsAdmin', () => ({
   productVariants: [],
   customers: [],
 
+  // All sale_items (for non-moving last sold date)
+  allSaleItemsForLastSold: [],
+
   // Previous period sales for metric comparison
   prevSales: [],
   prevSaleItems: [],
@@ -67,10 +70,10 @@ Alpine.data('reportsAdmin', () => ({
 
   // Tab 2: Penjualan State
   salesFilterChannel: 'all', // 'all', 'pos', 'online'
-  salesFilterStatus: 'all', // 'all', 'paid', 'unpaid', 'failed'
+  salesFilterStatus: 'all', // 'all', 'paid', 'unpaid', 'cancelled'
   salesSortBy: 'date_desc', // 'date_desc', 'total_desc'
   salesPage: 1,
-  salesPerPage: 20,
+  salesPerPage: 25,
   selectedSaleDetail: null,
   showSaleDetailModal: false,
 
@@ -82,8 +85,8 @@ Alpine.data('reportsAdmin', () => ({
   // Tab 4: Pelanggan State
   customerMetrics: {
     newCustomers: 0,
-    purchasingCustomers: 0,
-    mostActiveName: '-',
+    activeCustomers: 0,
+    repeatBuyers: 0,
   },
   customerReportList: [],
   customerSearchQuery: '',
@@ -115,6 +118,7 @@ Alpine.data('reportsAdmin', () => ({
   lowStockItems: [],
   outOfStockItems: [],
   stockMovementsLog: [],
+  stockMovementSearch: '',
 
   // Chart Instances
   revenueChartInstance: null,
@@ -146,6 +150,48 @@ Alpine.data('reportsAdmin', () => ({
     return `${y}-${m}-${day}`
   },
 
+  // ── Date Preset Shortcuts ───────────────────────────────────────────────
+  setPresetToday() {
+    const now = new Date()
+    this.startDate = this.formatInputDate(now)
+    this.endDate = this.formatInputDate(now)
+    this.fetchAllReportsData()
+  },
+
+  setPreset7Days() {
+    const now = new Date()
+    const start = new Date(now)
+    start.setDate(start.getDate() - 6)
+    this.startDate = this.formatInputDate(start)
+    this.endDate = this.formatInputDate(now)
+    this.fetchAllReportsData()
+  },
+
+  setPresetThisMonth() {
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    this.startDate = this.formatInputDate(startOfMonth)
+    this.endDate = this.formatInputDate(now)
+    this.fetchAllReportsData()
+  },
+
+  setPresetLastMonth() {
+    const now = new Date()
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
+    this.startDate = this.formatInputDate(startOfLastMonth)
+    this.endDate = this.formatInputDate(endOfLastMonth)
+    this.fetchAllReportsData()
+  },
+
+  setPresetThisYear() {
+    const now = new Date()
+    const startOfYear = new Date(now.getFullYear(), 0, 1)
+    this.startDate = this.formatInputDate(startOfYear)
+    this.endDate = this.formatInputDate(now)
+    this.fetchAllReportsData()
+  },
+
   async fetchAllReportsData() {
     this.loading = true
     try {
@@ -160,6 +206,7 @@ Alpine.data('reportsAdmin', () => ({
           channel,
           subtotal,
           discount_amount,
+          shipping_cost,
           total_amount,
           payment_status,
           order_status,
@@ -271,6 +318,9 @@ Alpine.data('reportsAdmin', () => ({
 
       this.purchases = purchData || []
 
+      // 7. Fetch all-time sale_items for non-moving "last sold" date
+      await this.fetchLastSoldData()
+
       // Process calculations for all tabs
       this.calculateRingkasanMetrics()
       this.processPenjualanTab()
@@ -288,6 +338,36 @@ Alpine.data('reportsAdmin', () => ({
       console.error('Fetch all reports error:', err)
     } finally {
       this.loading = false
+    }
+  },
+
+  // Fetch last sold dates for non-moving products analysis
+  async fetchLastSoldData() {
+    try {
+      // Get product IDs that were NOT sold in current range
+      const paidSalesSet = new Set(this.sales.filter((s) => s.payment_status === 'paid').map((s) => s.id))
+      const soldProductIds = new Set(
+        this.saleItems.filter((item) => paidSalesSet.has(item.sale_id)).map((i) => i.product_id)
+      )
+      const nonMovingIds = this.products.filter((p) => !soldProductIds.has(p.id)).map((p) => p.id)
+
+      if (nonMovingIds.length === 0) {
+        this.allSaleItemsForLastSold = []
+        return
+      }
+
+      // Fetch the latest sale_item for each non-moving product (outside current range)
+      const { data: lastSoldItems } = await supabase
+        .from('sale_items')
+        .select('product_id, sale_id, sales!inner(created_at, payment_status)')
+        .in('product_id', nonMovingIds)
+        .eq('sales.payment_status', 'paid')
+        .order('sales(created_at)', { ascending: false })
+
+      this.allSaleItemsForLastSold = lastSoldItems || []
+    } catch (e) {
+      console.error('Last sold fetch error:', e)
+      this.allSaleItemsForLastSold = []
     }
   },
 
@@ -534,6 +614,11 @@ Alpine.data('reportsAdmin', () => ({
     // Handled in computed filteredSales
   },
 
+  // Get item count for a sale
+  getSaleItemCount(saleId) {
+    return this.saleItems.filter((i) => i.sale_id === saleId).reduce((acc, i) => acc + (i.quantity || 0), 0)
+  },
+
   get filteredSales() {
     let list = [...this.sales]
 
@@ -548,9 +633,9 @@ Alpine.data('reportsAdmin', () => ({
     if (this.salesFilterStatus === 'paid') {
       list = list.filter((s) => s.payment_status === 'paid')
     } else if (this.salesFilterStatus === 'unpaid') {
-      list = list.filter((s) => s.payment_status === 'unpaid')
-    } else if (this.salesFilterStatus === 'failed') {
-      list = list.filter((s) => s.payment_status === 'failed')
+      list = list.filter((s) => s.payment_status === 'unpaid' || s.payment_status === 'pending')
+    } else if (this.salesFilterStatus === 'cancelled') {
+      list = list.filter((s) => s.order_status === 'cancelled')
     }
 
     // Sorting
@@ -586,7 +671,7 @@ Alpine.data('reportsAdmin', () => ({
 
   exportSalesCSV() {
     const rows = [
-      ['Tanggal', 'Nomor Transaksi', 'Channel', 'Customer/Kasir', 'Total (Rp)', 'Metode Bayar', 'Status'],
+      ['Tanggal', 'Nomor Transaksi', 'Channel', 'Customer/Kasir', 'Subtotal', 'Ongkir', 'Total (Rp)', 'Metode Bayar', 'Status'],
     ]
 
     this.filteredSales.forEach((s) => {
@@ -594,12 +679,14 @@ Alpine.data('reportsAdmin', () => ({
       const date = this.formatDate(s.created_at)
       const channel = s.channel === 'pos' ? 'Kasir (POS)' : 'Online'
       const customer = s.customers?.name || s.staff?.name || 'Walk-in Customer'
+      const subtotal = s.subtotal || 0
+      const shippingCost = s.shipping_cost || 0
       const total = s.total_amount || 0
       const pay = (s.payments && s.payments.length > 0) ? s.payments[0] : null
       const method = pay?.method || 'Cash'
-      const status = s.payment_status === 'paid' ? 'Lunas' : s.payment_status
+      const status = s.order_status === 'cancelled' ? 'Dibatalkan' : (s.payment_status === 'paid' ? 'Lunas' : 'Menunggu')
 
-      rows.push([date, code, channel, customer, total, method, status])
+      rows.push([date, code, channel, `"${customer}"`, subtotal, shippingCost, total, method, status])
     })
 
     const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n')
@@ -676,14 +763,26 @@ Alpine.data('reportsAdmin', () => ({
     const soldProductIds = new Set(paidItems.map((i) => i.product_id))
     const nonMoving = []
 
+    // Build last sold date map from allSaleItemsForLastSold
+    const lastSoldMap = {}
+    ;(this.allSaleItemsForLastSold || []).forEach((item) => {
+      const pid = item.product_id
+      const saleDate = item.sales?.created_at
+      if (saleDate && (!lastSoldMap[pid] || new Date(saleDate) > new Date(lastSoldMap[pid]))) {
+        lastSoldMap[pid] = saleDate
+      }
+    })
+
     this.products.forEach((p) => {
       if (!soldProductIds.has(p.id)) {
         const totalStk = (p.product_variants || []).reduce((acc, v) => acc + (v.available_quantity || 0), 0)
         nonMoving.push({
           id: p.id,
           name: p.name,
+          brand: _clean(p.brand_name),
           category: p.categories?.name || 'Umum',
           currentStock: totalStk,
+          lastSoldDate: lastSoldMap[p.id] || null,
         })
       }
     })
@@ -722,7 +821,8 @@ Alpine.data('reportsAdmin', () => ({
       }
     })
 
-    const purchasingCustsCount = Object.keys(custMap).length
+    const activeCustomersCount = Object.keys(custMap).length
+    const repeatBuyersCount = Object.values(custMap).filter((c) => c.totalOrders > 1).length
 
     // Build customer report list
     const reportList = this.customers.map((c) => {
@@ -735,23 +835,14 @@ Alpine.data('reportsAdmin', () => ({
         totalOrders: stats.totalOrders,
         totalSpend: stats.totalSpend,
         lastOrderDate: stats.lastOrderDate,
-        source: c.email ? 'Online' : 'Walk-in / POS',
+        source: c.email ? 'Online' : 'Manual',
       }
     })
 
-    // Find most active customer name
-    let mostActive = '-'
-    if (reportList.length > 0) {
-      const sortedByOrders = [...reportList].sort((a, b) => b.totalOrders - a.totalOrders)
-      if (sortedByOrders[0].totalOrders > 0) {
-        mostActive = `${sortedByOrders[0].name} (${sortedByOrders[0].totalOrders} transaksi)`
-      }
-    }
-
     this.customerMetrics = {
       newCustomers: newCusts.length,
-      purchasingCustomers: purchasingCustsCount,
-      mostActiveName: mostActive,
+      activeCustomers: activeCustomersCount,
+      repeatBuyers: repeatBuyersCount,
     }
 
     this.customerReportList = reportList
@@ -877,6 +968,7 @@ Alpine.data('reportsAdmin', () => ({
           color_name: colorName,
           hex_code: hexCode,
           location: 'Toko Utama',
+          totalQty: resv, // may have reserved
         })
       }
     })
@@ -896,13 +988,14 @@ Alpine.data('reportsAdmin', () => ({
 
     this.saleItems.forEach((si) => {
       const parentSale = this.sales.find((s) => s.id === si.sale_id)
-      if (parentSale) {
+      if (parentSale && parentSale.payment_status === 'paid') {
         logs.push({
           date: parentSale.created_at,
           product_name: si.products?.name || 'Produk',
           color_name: si.product_variants?.colors?.name || '-',
+          hex_code: si.product_variants?.colors?.hex_code || '#84807A',
           type: 'OUT',
-          typeLabel: 'Keluar (Penjualan)',
+          typeLabel: 'Keluar',
           qty: si.quantity,
           refCode: '#' + parentSale.id.substring(0, 8).toUpperCase(),
         })
@@ -917,8 +1010,9 @@ Alpine.data('reportsAdmin', () => ({
             date: po.received_date || po.order_date,
             product_name: matchVar?.product_name || 'Produk PO',
             color_name: matchVar?.colors?.name || '-',
+            hex_code: matchVar?.colors?.hex_code || '#84807A',
             type: 'IN',
-            typeLabel: 'Masuk (Pembelian)',
+            typeLabel: 'Masuk',
             qty: pi.received_quantity || pi.order_quantity,
             refCode: po.po_number || '#' + po.id.substring(0, 8),
           })
@@ -927,7 +1021,14 @@ Alpine.data('reportsAdmin', () => ({
     })
 
     logs.sort((a, b) => new Date(b.date) - new Date(a.date))
-    this.stockMovementsLog = logs.slice(0, 50)
+    this.stockMovementsLog = logs.slice(0, 100)
+  },
+
+  // Filtered stock movements by search
+  get filteredStockMovementsLog() {
+    if (!this.stockMovementSearch.trim()) return this.stockMovementsLog
+    const q = this.stockMovementSearch.trim().toLowerCase()
+    return this.stockMovementsLog.filter((log) => log.product_name.toLowerCase().includes(q))
   },
 
   formatDate(dateStr) {
