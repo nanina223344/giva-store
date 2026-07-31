@@ -1,0 +1,16 @@
+{
+    "rewrites": [
+        {
+            "source": "/admin/:path*",
+            "destination": "/admin/:path*"
+        },
+        {
+            "source": "/kasir/:path*",
+            "destination": "/kasir/:path*"
+        },
+        {
+            "source": "/toko/:path*",
+            "destination": "/toko/:path*"
+        }
+    ]
+}
