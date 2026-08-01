@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page Builder Artikel — Admin Panel</title>
+  <meta name="description" content="Editor visual artikel inspirasi Giva Store." />
+  <link rel="stylesheet" href="/src/style.css" />
+  <style>[x-cloak] { display: none !important; }</style>
+</head>
+
+<body
+  class="bg-cream text-ink min-h-screen font-sans antialiased"
+  x-data="articleEditor"
+  x-init="init()"
+  x-cloak>
+
+  <div class="flex min-h-screen">
+    <div id="admin-sidebar"></div>
+
+    <!-- Main Container -->
+    <div class="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+
+      <!-- Top Header Navigation Bar -->
+      <header class="bg-cream/90 backdrop-blur border-b border-border px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-20 gap-4">
+        <div class="flex items-center gap-3 min-w-0">
+          <button
+            id="btn-hamburger"
+            onclick="openSidebar()"
+            class="lg:hidden w-10 h-10 -ml-1 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          
+          <a href="/admin/articles.html" class="w-9 h-9 rounded-xl border border-border bg-white text-stone hover:text-ink flex items-center justify-center transition-colors flex-shrink-0" title="Kembali ke Daftar Artikel">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </a>
+
+          <div class="min-w-0">
+            <h1 class="text-base sm:text-xl font-display font-semibold text-ink leading-tight truncate" x-text="articleForm.title || 'Artikel Tanpa Judul'"></h1>
+            <p class="text-xs text-stone mt-0.5">
+              <span x-text="articleId ? 'Edit Artikel' : 'Tulis Artikel Baru'"></span> • 
+              <span x-text="isDirty ? 'Ada perubahan belum disimpan' : `Tersimpan otomatis ${lastSavedTime}`"
+                :class="isDirty ? 'text-amber-600 font-semibold' : 'text-stone'"></span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Right Header Actions -->
+        <div class="flex items-center gap-2">
+          <button @click="previewArticle()"
+            class="px-3 py-2 bg-sand hover:bg-border text-ink text-xs font-semibold rounded-xl border border-border transition-colors cursor-pointer min-h-[38px] flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-stone" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            <span class="hidden sm:inline">Preview</span>
+          </button>
+
+          <button @click="saveArticle('draft')" :disabled="saving"
+            class="px-3.5 py-2 border border-sage text-sage-deep hover:bg-sage/10 text-xs font-semibold rounded-xl transition-colors cursor-pointer min-h-[38px] disabled:opacity-50">
+            <span>Simpan Draft</span>
+          </button>
+
+          <button @click="saveArticle('published')" :disabled="saving"
+            class="px-4 py-2 bg-sage hover:bg-sage-deep text-white text-xs font-semibold rounded-xl transition-colors shadow-sm cursor-pointer min-h-[38px] disabled:opacity-50 inline-flex items-center gap-1.5">
+            <svg x-show="saving" class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            <span x-text="saving ? 'Menyimpan...' : 'Terbitkan'"></span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Layout: 2 Panels -->
+      <div class="flex-1 flex flex-col lg:flex-row min-w-0">
+
+        <!-- ── SIDEBAR KIRI: Metadata & Settings (320px) ──────────────────── -->
+        <aside class="w-full lg:w-80 bg-white border-b lg:border-b-0 lg:border-r border-border p-6 space-y-6 flex-shrink-0">
+          
+          <!-- SECTION 1: INFO ARTIKEL -->
+          <div class="space-y-4">
+            <h3 class="text-xs font-bold text-stone uppercase tracking-wider">Info Artikel</h3>
+
+            <!-- Title Input -->
+            <div class="space-y-1">
+              <label class="block text-xs font-semibold text-ink">Judul Artikel <span class="text-red-500">*</span></label>
+              <input type="text" x-model="articleForm.title" @input="onTitleInput()" placeholder="Masukkan judul artikel..." required
+                class="w-full px-3 py-2.5 border border-border rounded-xl text-sm font-bold text-ink bg-cream/50 focus:bg-white focus:border-sage focus:outline-none" />
+            </div>
+
+            <!-- Slug Input -->
+            <div class="space-y-1">
+              <label class="block text-xs font-semibold text-ink">URL Slug</label>
+              <div class="flex items-center bg-cream/50 border border-border rounded-xl px-2.5 py-1.5 text-xs">
+                <span class="text-stone font-mono select-none">/inspirasi/</span>
+                <input type="text" x-model="articleForm.slug" @input="onSlugInput()" placeholder="slug-artikel"
+                  class="w-full bg-transparent text-ink font-mono focus:outline-none ml-1" />
+              </div>
+            </div>
+
+            <!-- Excerpt Input -->
+            <div class="space-y-1">
+              <label class="block text-xs font-semibold text-ink">Ringkasan / Excerpt</label>
+              <textarea x-model="articleForm.excerpt" @input="markDirty()" rows="3" placeholder="Deskripsi singkat artikel untuk preview list dan SEO..."
+                class="w-full px-3 py-2 border border-border rounded-xl text-xs text-ink bg-cream/50 focus:bg-white focus:border-sage focus:outline-none"></textarea>
+            </div>
+
+            <!-- Multi-select Categories -->
+            <div class="space-y-1">
+              <label class="block text-xs font-semibold text-ink">Kategori Artikel</label>
+              <div class="p-3 border border-border rounded-xl bg-cream/30 space-y-2 max-h-36 overflow-y-auto">
+                <template x-for="cat in categoriesList" :key="cat.id">
+                  <label class="flex items-center gap-2 text-xs text-ink cursor-pointer hover:text-sage-deep">
+                    <input type="checkbox" :value="cat.id" x-model="selectedCategoryIds" @change="markDirty()"
+                      class="rounded border-border text-sage focus:ring-sage" />
+                    <span x-text="cat.name"></span>
+                  </label>
+                </template>
+                <template x-if="categoriesList.length === 0">
+                  <p class="text-xs text-stone">Belum ada kategori aktif.</p>
+                </template>
+              </div>
+            </div>
+
+            <!-- Tags Chip Input -->
+            <div class="space-y-1">
+              <label class="block text-xs font-semibold text-ink">Tags / Tagar</label>
+              <div class="flex flex-wrap gap-1.5 p-2 border border-border rounded-xl bg-cream/30 min-h-[42px]">
+                <template x-for="(tag, idx) in tags" :key="idx">
+                  <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-sage/15 text-sage-deep border border-sage/25">
+                    <span x-text="`#${tag}`"></span>
+                    <button type="button" @click="removeTag(idx)" class="hover:text-red-600 font-bold ml-1">×</button>
+                  </span>
+                </template>
+                <input type="text" x-model="tagInput" @keydown.enter.prevent="addTag()" placeholder="Tambah tag..."
+                  class="flex-1 bg-transparent text-xs text-ink focus:outline-none min-w-[80px]" />
+              </div>
+            </div>
+
+            <!-- Status Dropdown -->
+            <div class="space-y-1">
+              <label class="block text-xs font-semibold text-ink">Status Publikasi</label>
+              <select x-model="articleForm.status" @change="markDirty()"
+                class="w-full px-3 py-2 border border-border rounded-xl text-xs text-ink bg-cream/50 focus:border-sage focus:outline-none cursor-pointer">
+                <option value="draft">Draft (Belum Terbit)</option>
+                <option value="published">Terbit (Publik)</option>
+                <option value="archived">Arsip (Disembunyikan)</option>
+              </select>
+            </div>
+
+            <!-- Published Date (if published) -->
+            <div x-show="articleForm.status === 'published'" class="space-y-1">
+              <label class="block text-xs font-semibold text-ink">Tanggal & Waktu Terbit</label>
+              <input type="datetime-local" x-model="articleForm.published_at" @change="markDirty()"
+                class="w-full px-3 py-2 border border-border rounded-xl text-xs text-ink bg-cream/50 focus:border-sage focus:outline-none cursor-pointer" />
+            </div>
+          </div>
+
+          <!-- SECTION 2: COVER IMAGE -->
+          <div class="space-y-3 border-t border-border pt-4">
+            <h3 class="text-xs font-bold text-stone uppercase tracking-wider">Gambar Cover</h3>
+            
+            <div class="space-y-2">
+              <div class="relative aspect-video rounded-xl border border-border overflow-hidden bg-sand flex items-center justify-center group">
+                <template x-if="articleForm.cover_image_url">
+                  <img :src="articleForm.cover_image_url" class="w-full h-full object-cover" />
+                </template>
+                <template x-if="!articleForm.cover_image_url">
+                  <div class="text-center p-4">
+                    <svg class="w-8 h-8 text-stone/40 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p class="text-[11px] text-stone">Belum ada cover</p>
+                  </div>
+                </template>
+
+                <div x-show="coverUploading" class="absolute inset-0 bg-white/80 flex items-center justify-center">
+                  <svg class="animate-spin h-6 w-6 text-sage" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                </div>
+              </div>
+
+              <div class="flex gap-2">
+                <label class="flex-1 py-2 px-3 bg-sand hover:bg-border text-ink text-xs font-semibold rounded-xl border border-border text-center cursor-pointer transition-colors">
+                  <span>Upload Gambar</span>
+                  <input type="file" accept="image/*" @change="uploadCover($event)" class="hidden" />
+                </label>
+                <template x-if="articleForm.cover_image_url">
+                  <button type="button" @click="removeCover()" class="px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 text-xs font-semibold rounded-xl border border-red-200">
+                    Hapus
+                  </button>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 3: SEO OPTIMIZATION -->
+          <div class="space-y-3 border-t border-border pt-4">
+            <h3 class="text-xs font-bold text-stone uppercase tracking-wider">Pengaturan SEO</h3>
+
+            <!-- Meta Title -->
+            <div class="space-y-1">
+              <div class="flex justify-between text-xs">
+                <label class="font-semibold text-ink">Meta Title</label>
+                <span class="text-stone" x-text="`${(articleForm.meta_title || '').length}/60`"></span>
+              </div>
+              <input type="text" x-model="articleForm.meta_title" @input="markDirty()" maxlength="60" placeholder="Judul untuk mesin pencari..."
+                class="w-full px-3 py-2 border border-border rounded-xl text-xs text-ink bg-cream/50 focus:bg-white focus:border-sage focus:outline-none" />
+            </div>
+
+            <!-- Meta Description -->
+            <div class="space-y-1">
+              <div class="flex justify-between text-xs">
+                <label class="font-semibold text-ink">Meta Description</label>
+                <span class="text-stone" x-text="`${(articleForm.meta_description || '').length}/160`"></span>
+              </div>
+              <textarea x-model="articleForm.meta_description" @input="markDirty()" maxlength="160" rows="3" placeholder="Deskripsi untuk hasil pencarian Google..."
+                class="w-full px-3 py-2 border border-border rounded-xl text-xs text-ink bg-cream/50 focus:bg-white focus:border-sage focus:outline-none"></textarea>
+            </div>
+
+            <!-- Preview Snippet Google -->
+            <div class="p-3 rounded-xl border border-border bg-cream/30 space-y-1 text-xs">
+              <p class="text-[10px] font-bold uppercase text-stone tracking-wider">Simulasi Tampilan Google</p>
+              <p class="text-blue-700 font-medium text-sm line-clamp-1" x-text="articleForm.meta_title || articleForm.title || 'Judul Artikel'"></p>
+              <p class="text-emerald-700 text-[11px] font-mono truncate" x-text="`https://givastore.com/toko/article.html?slug=${articleForm.slug || 'slug'}`"></p>
+              <p class="text-stone text-[11px] line-clamp-2" x-text="articleForm.meta_description || articleForm.excerpt || 'Deskripsi artikel akan muncul di sini pada hasil pencarian...'"></p>
+            </div>
+          </div>
+
+        </aside>
+
+        <!-- ── AREA EDITOR KANAN: Visual Page Builder ──────────────────────── -->
+        <main class="flex-1 p-4 sm:p-8 space-y-6 max-w-4xl mx-auto w-full">
+
+          <!-- Header Editor Area -->
+          <div class="flex items-center justify-between border-b border-border pb-4">
+            <div>
+              <h2 class="text-lg font-display font-semibold text-ink">Konten Artikel (Blok Editor)</h2>
+              <p class="text-xs text-stone">Susun konten dengan menambahkan blok paragraf, heading, gambar, quote, atau produk.</p>
+            </div>
+
+            <!-- Dropdown Toolbar "+ Tambah Blok" -->
+            <div class="relative">
+              <button @click="showBlockDropdown = !showBlockDropdown"
+                class="px-4 py-2 bg-sage hover:bg-sage-deep text-white text-xs font-semibold rounded-xl transition-all shadow-sm flex items-center gap-2 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                <span>Tambah Blok</span>
+              </button>
+
+              <!-- Dropdown Menu items -->
+              <div
+                x-show="showBlockDropdown"
+                @click.away="showBlockDropdown = false"
+                x-transition
+                class="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-border shadow-xl p-2 z-30 space-y-1 text-xs">
+                <button @click="addBlock('paragraph')" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-cream text-ink text-left font-medium">
+                  <span>📝</span> <span>Paragraf Teks</span>
+                </button>
+                <button @click="addBlock('heading')" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-cream text-ink text-left font-medium">
+                  <span>🔤</span> <span>Heading (Judul Sub)</span>
+                </button>
+                <button @click="addBlock('image')" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-cream text-ink text-left font-medium">
+                  <span>🖼️</span> <span>Gambar Single</span>
+                </button>
+                <button @click="addBlock('video')" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-cream text-ink text-left font-medium">
+                  <span>🎬</span> <span>Video (YouTube/File)</span>
+                </button>
+                <button @click="addBlock('quote')" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-cream text-ink text-left font-medium">
+                  <span>💬</span> <span>Kutipan / Quote</span>
+                </button>
+                <button @click="addBlock('product')" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-cream text-ink text-left font-medium">
+                  <span>🛍️</span> <span>Produk Giva Store</span>
+                </button>
+                <button @click="addBlock('gallery')" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-cream text-ink text-left font-medium">
+                  <span>🖼️🖼️</span> <span>Galeri Foto</span>
+                </button>
+                <button @click="addBlock('divider')" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-cream text-ink text-left font-medium">
+                  <span>───</span> <span>Garis Pemisah</span>
+                </button>
+                <button @click="addBlock('spacer')" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-cream text-ink text-left font-medium">
+                  <span>⬜</span> <span>Spasi Kosong</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty Blocks State -->
+          <div x-show="blocks.length === 0" class="p-12 text-center border-2 border-dashed border-border rounded-2xl bg-white/60">
+            <p class="text-sm font-semibold text-ink mb-1">Belum Ada Blok Konten</p>
+            <p class="text-xs text-stone mb-4">Klik tombol "Tambah Blok" di kanan atas untuk mulai menulis artikel.</p>
+          </div>
+
+          <!-- LIST OF BLOCKS -->
+          <div class="space-y-4">
+            <template x-for="(block, bIdx) in blocks" :key="block.id">
+              <div class="bg-white border border-border rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 relative group">
+                
+                <!-- Block Card Header Toolbar -->
+                <div class="flex items-center justify-between border-b border-border/60 pb-3 text-xs text-stone">
+                  <div class="flex items-center gap-2">
+                    <span class="cursor-grab text-stone/50 hover:text-stone font-mono">⠿</span>
+                    <span class="font-bold uppercase tracking-wider text-[10px] px-2 py-0.5 rounded bg-sand text-ink" x-text="block.type"></span>
+                    <span class="text-[11px]" x-text="`#${bIdx + 1}`"></span>
+                  </div>
+
+                  <div class="flex items-center gap-1">
+                    <!-- Move Up -->
+                    <button type="button" @click="moveBlockUp(bIdx)" :disabled="bIdx === 0"
+                      class="w-7 h-7 rounded-lg hover:bg-sand text-stone hover:text-ink disabled:opacity-30 flex items-center justify-center">
+                      ↑
+                    </button>
+                    <!-- Move Down -->
+                    <button type="button" @click="moveBlockDown(bIdx)" :disabled="bIdx === blocks.length - 1"
+                      class="w-7 h-7 rounded-lg hover:bg-sand text-stone hover:text-ink disabled:opacity-30 flex items-center justify-center">
+                      ↓
+                    </button>
+                    <!-- Delete Block -->
+                    <button type="button" @click="removeBlock(bIdx)"
+                      class="w-7 h-7 rounded-lg hover:bg-red-50 text-stone hover:text-red-600 flex items-center justify-center">
+                      ×
+                    </button>
+                  </div>
+                </div>
+
+                <!-- ── BLOCK TYPE: HEADING ── -->
+                <template x-if="block.type === 'heading'">
+                  <div class="space-y-3">
+                    <div class="flex items-center gap-3">
+                      <select x-model="block.content.level" @change="markDirty()"
+                        class="px-3 py-1.5 border border-border rounded-xl text-xs font-semibold text-ink bg-cream/50 focus:border-sage focus:outline-none">
+                        <option :value="2">H2 (Subjudul Utama)</option>
+                        <option :value="3">H3 (Subjudul Sedang)</option>
+                        <option :value="4">H4 (Subjudul Kecil)</option>
+                      </select>
+                    </div>
+                    <input type="text" x-model="block.content.text" @input="markDirty()" placeholder="Tulis judul sub bab di sini..."
+                      class="w-full px-3 py-2 border border-border rounded-xl font-display font-semibold text-ink bg-cream/30 focus:bg-white focus:border-sage focus:outline-none"
+                      :class="block.content.level === 2 ? 'text-xl' : (block.content.level === 3 ? 'text-lg' : 'text-base')" />
+                  </div>
+                </template>
+
+                <!-- ── BLOCK TYPE: PARAGRAPH ── -->
+                <template x-if="block.type === 'paragraph'">
+                  <div class="space-y-2">
+                    <textarea x-model="block.content.text" @input="markDirty()" rows="4" placeholder="Tulis isi paragraf artikel di sini..."
+                      class="w-full px-3.5 py-3 border border-border rounded-xl text-sm leading-relaxed text-ink bg-cream/30 focus:bg-white focus:border-sage focus:outline-none"></textarea>
+                  </div>
+                </template>
+
+                <!-- ── BLOCK TYPE: IMAGE ── -->
+                <template x-if="block.type === 'image'">
+                  <div class="space-y-3">
+                    <div class="aspect-video max-h-64 rounded-xl border border-border bg-sand overflow-hidden flex items-center justify-center relative">
+                      <template x-if="block.content.url">
+                        <img :src="block.content.url" class="w-full h-full object-cover" />
+                      </template>
+                      <template x-if="!block.content.url">
+                        <div class="text-center p-4">
+                          <p class="text-xs text-stone mb-2">Belum ada gambar</p>
+                          <label class="px-4 py-2 bg-sage text-white text-xs font-semibold rounded-xl cursor-pointer hover:bg-sage-deep transition-colors inline-block">
+                            Upload Gambar
+                            <input type="file" accept="image/*" @change="uploadBlockImage($event, bIdx)" class="hidden" />
+                          </label>
+                        </div>
+                      </template>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <input type="text" x-model="block.content.alt" @input="markDirty()" placeholder="Alt text gambar (SEO)..."
+                        class="px-3 py-2 border border-border rounded-xl text-ink bg-cream/50 focus:bg-white focus:border-sage focus:outline-none" />
+                      <input type="text" x-model="block.content.caption" @input="markDirty()" placeholder="Caption / Keterangan foto..."
+                        class="px-3 py-2 border border-border rounded-xl text-ink bg-cream/50 focus:bg-white focus:border-sage focus:outline-none" />
+                    </div>
+                  </div>
+                </template>
+
+                <!-- ── BLOCK TYPE: VIDEO ── -->
+                <template x-if="block.type === 'video'">
+                  <div class="space-y-3 text-xs">
+                    <div class="flex items-center gap-4">
+                      <label class="flex items-center gap-1.5 cursor-pointer font-medium text-ink">
+                        <input type="radio" value="youtube" x-model="block.content.type" @change="markDirty()" class="text-sage" />
+                        <span>YouTube Embed</span>
+                      </label>
+                    </div>
+
+                    <template x-if="block.content.type === 'youtube'">
+                      <div class="space-y-2">
+                        <input type="url" x-model="block.content.url" @input="markDirty()" placeholder="Masukkan URL YouTube (cth: https://www.youtube.com/watch?v=...)"
+                          class="w-full px-3 py-2 border border-border rounded-xl text-xs text-ink bg-cream/50 focus:bg-white focus:border-sage focus:outline-none" />
+                        
+                        <template x-if="block.content.url">
+                          <div class="aspect-video max-h-64 rounded-xl overflow-hidden border border-border bg-black">
+                            <iframe :src="getYoutubeEmbedUrl(block.content.url)" class="w-full h-full" frameborder="0" allowfullscreen></iframe>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+
+                <!-- ── BLOCK TYPE: QUOTE ── -->
+                <template x-if="block.type === 'quote'">
+                  <div class="p-4 rounded-xl border-l-4 border-sage bg-cream/40 space-y-3">
+                    <textarea x-model="block.content.text" @input="markDirty()" rows="2" placeholder="Tulis kalimat kutipan / quote di sini..."
+                      class="w-full px-3 py-2 border border-border rounded-xl text-sm font-display italic text-ink bg-white focus:border-sage focus:outline-none"></textarea>
+                    <input type="text" x-model="block.content.attribution" @input="markDirty()" placeholder="— Atribusi (cth: Nama Penulis, Jabatan)"
+                      class="w-full px-3 py-2 border border-border rounded-xl text-xs text-stone bg-white focus:border-sage focus:outline-none" />
+                  </div>
+                </template>
+
+                <!-- ── BLOCK TYPE: PRODUCT EMBED ── -->
+                <template x-if="block.type === 'product'">
+                  <div class="space-y-3">
+                    <template x-if="block.content.product_id">
+                      <div class="p-3 border border-border rounded-xl bg-sand/30 flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3 min-w-0">
+                          <img :src="block.content.product_image || '/placeholder.png'" class="w-12 h-12 rounded-lg object-cover border border-border bg-white" />
+                          <div class="min-w-0">
+                            <p class="font-bold text-sm text-ink truncate" x-text="block.content.product_name"></p>
+                            <p class="text-xs font-semibold text-sage-deep" x-text="`Rp ${(block.content.product_price || 0).toLocaleString('id-ID')}`"></p>
+                          </div>
+                        </div>
+                        <button type="button" @click="openProductSearchModal(bIdx)" class="px-3 py-1.5 bg-white border border-border text-xs font-semibold rounded-lg hover:bg-sand">
+                          Ganti Produk
+                        </button>
+                      </div>
+                    </template>
+
+                    <template x-if="!block.content.product_id">
+                      <div class="p-6 border-2 border-dashed border-border rounded-xl text-center">
+                        <p class="text-xs text-stone mb-3">Belum ada produk dipilih untuk disematkan.</p>
+                        <button type="button" @click="openProductSearchModal(bIdx)" class="px-4 py-2 bg-sage text-white text-xs font-semibold rounded-xl hover:bg-sage-deep">
+                          Pilih Produk Giva Store
+                        </button>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+
+                <!-- ── BLOCK TYPE: GALLERY ── -->
+                <template x-if="block.type === 'gallery'">
+                  <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                      <p class="text-xs font-semibold text-stone">Foto Galeri (<span x-text="(block.content.images || []).length"></span> foto)</p>
+                      <label class="px-3 py-1.5 bg-sage text-white text-xs font-semibold rounded-xl cursor-pointer hover:bg-sage-deep">
+                        + Tambah Foto
+                        <input type="file" accept="image/*" multiple @change="uploadGalleryImages($event, bIdx)" class="hidden" />
+                      </label>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      <template x-for="(img, gIdx) in (block.content.images || [])" :key="gIdx">
+                        <div class="relative aspect-square rounded-xl border border-border overflow-hidden bg-sand group">
+                          <img :src="img.url" class="w-full h-full object-cover" />
+                          <button type="button" @click="removeGalleryImage(bIdx, gIdx)"
+                            class="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-500 text-white font-bold text-xs flex items-center justify-center shadow">×</button>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- ── BLOCK TYPE: DIVIDER ── -->
+                <template x-if="block.type === 'divider'">
+                  <div class="py-4">
+                    <hr class="border-t border-border" />
+                  </div>
+                </template>
+
+                <!-- ── BLOCK TYPE: SPACER ── -->
+                <template x-if="block.type === 'spacer'">
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-3 text-xs">
+                      <span class="text-stone">Tinggi Spasi:</span>
+                      <input type="number" x-model="block.content.height" min="10" max="200" @input="markDirty()"
+                        class="w-24 px-3 py-1.5 border border-border rounded-xl text-ink font-semibold bg-cream/50 focus:outline-none" />
+                      <span class="text-stone">px</span>
+                    </div>
+                    <div class="w-full bg-sand/50 rounded-lg border border-dashed border-border/80 flex items-center justify-center text-[10px] text-stone font-mono"
+                      :style="`height: ${block.content.height || 24}px`">
+                      Spasi Kosong <span x-text="`${block.content.height || 24}px`"></span>
+                    </div>
+                  </div>
+                </template>
+
+              </div>
+            </template>
+          </div>
+
+          <!-- Bottom Add Block Button -->
+          <div class="pt-4 flex justify-center">
+            <button @click="showBlockDropdown = true" class="px-5 py-2.5 bg-sand hover:bg-border text-ink text-xs font-semibold rounded-2xl border border-border transition-colors cursor-pointer inline-flex items-center gap-2">
+              <svg class="w-4 h-4 text-stone" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+              <span>Tambah Blok Konten</span>
+            </button>
+          </div>
+
+        </main>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Search Product for Product Block -->
+  <div
+    x-show="activeProductBlockIndex !== null"
+    x-transition
+    class="fixed inset-0 z-50 flex items-center justify-center p-4"
+    style="display:none;">
+    <div class="absolute inset-0 bg-ink/20 backdrop-blur-sm" @click="activeProductBlockIndex = null"></div>
+    <div class="relative bg-white rounded-2xl border border-border shadow-xl p-6 w-full max-w-md space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-semibold text-ink text-base">Pilih Produk Giva Store</h3>
+        <button @click="activeProductBlockIndex = null" class="text-stone hover:text-ink">×</button>
+      </div>
+
+      <div class="space-y-2">
+        <input type="text" x-model="productSearchQuery" @input.debounce.300ms="searchProducts()" placeholder="Cari nama produk..."
+          class="w-full px-3 py-2 border border-border rounded-xl text-xs text-ink bg-cream/50 focus:outline-none" />
+
+        <div class="max-h-64 overflow-y-auto divide-y divide-border border border-border rounded-xl">
+          <template x-for="prod in productSearchResults" :key="prod.id">
+            <div @click="selectProductForBlock(prod)" class="p-3 hover:bg-cream flex items-center gap-3 cursor-pointer">
+              <img :src="prod.image_url || '/placeholder.png'" class="w-10 h-10 rounded-lg object-cover border border-border" />
+              <div class="flex-1 min-w-0">
+                <p class="font-bold text-xs text-ink truncate" x-text="prod.name"></p>
+                <p class="text-xs text-sage-deep font-semibold" x-text="`Rp ${(prod.base_price || 0).toLocaleString('id-ID')}`"></p>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Alert -->
+  <div x-show="alert.show"
+    x-transition
+    class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border"
+    :class="alert.type === 'success' ? 'bg-sage text-white border-sage-deep' : 'bg-red-500 text-white border-red-600'"
+    style="display: none;">
+    <span class="text-sm font-medium" x-text="alert.message"></span>
+    <button @click="alert.show = false" class="text-white/80 hover:text-white">×</button>
+  </div>
+
+  <script type="module" src="/src/admin/article-editor.js"></script>
+</body>
+</html>

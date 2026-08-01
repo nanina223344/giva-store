@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inspirasi & Cerita — Giva Store</title>
+  <meta name="description" content="Tips, panduan, dan cerita inspiratif seputar gaya hidup, aksesoris, dan ide hadiah pilihan Giva Store." />
+  <link rel="stylesheet" href="/src/style.css" />
+  <style>[x-cloak] { display: none !important; }</style>
+</head>
+
+<body
+  class="bg-cream text-ink min-h-screen font-sans antialiased flex flex-col justify-between"
+  x-data="storeInspirasi"
+  x-init="init()"
+  x-cloak>
+
+  <!-- Dynamic Navbar -->
+  <div id="navbar-container"></div>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-10 w-full">
+
+    <!-- Header Banner Section -->
+    <div class="text-center max-w-2xl mx-auto space-y-3">
+      <span class="inline-flex px-3 py-1 rounded-full bg-sage/15 text-sage-deep text-xs font-semibold uppercase tracking-widest border border-sage/25">
+        Giva Journal
+      </span>
+      <h1 class="font-display text-3xl sm:text-5xl font-semibold text-ink leading-tight">Inspirasi & Cerita</h1>
+      <p class="text-stone text-sm sm:text-base leading-relaxed">
+        Tips, panduan gaya hidup, dan ide hadiah penuh kehangatan untuk setiap momen istimewa Anda.
+      </p>
+    </div>
+
+    <!-- Category Filter Bar & Search Input -->
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-border pb-6">
+      
+      <!-- Horizontal Scroll Category Pills -->
+      <div class="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0 scrollbar-none">
+        <button @click="activeCategory = 'all'"
+          :class="activeCategory === 'all' ? 'bg-sage text-white font-semibold shadow-sm' : 'bg-sand text-ink hover:bg-border font-medium'"
+          class="px-4 py-2 rounded-full text-xs transition-all whitespace-nowrap cursor-pointer">
+          Semua Artikels
+        </button>
+        <template x-for="cat in categories" :key="cat.id">
+          <button @click="activeCategory = cat.id"
+            :class="activeCategory === cat.id ? 'bg-sage text-white font-semibold shadow-sm' : 'bg-sand text-ink hover:bg-border font-medium'"
+            class="px-4 py-2 rounded-full text-xs transition-all whitespace-nowrap cursor-pointer"
+            x-text="cat.name">
+          </button>
+        </template>
+      </div>
+
+      <!-- Search Input -->
+      <div class="relative w-full sm:w-64">
+        <svg class="w-4 h-4 text-stone absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input type="text" x-model="searchQuery" placeholder="Cari inspirasi & artikel..."
+          class="w-full pl-10 pr-4 py-2 border border-border rounded-full text-xs text-ink bg-white focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all shadow-sm" />
+      </div>
+
+    </div>
+
+    <!-- Loading Skeleton -->
+    <div x-show="loading" class="grid grid-cols-1 md:grid-cols-3 gap-6 py-12">
+      <template x-for="i in 3" :key="i">
+        <div class="bg-white rounded-2xl border border-border overflow-hidden animate-pulse space-y-3 p-4">
+          <div class="aspect-video bg-sand rounded-xl"></div>
+          <div class="h-4 bg-sand rounded w-3/4"></div>
+          <div class="h-3 bg-sand rounded w-full"></div>
+          <div class="h-3 bg-sand rounded w-1/2"></div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Empty State -->
+    <div x-show="filteredArticles.length === 0 && !loading" class="text-center py-16 space-y-3">
+      <div class="w-16 h-16 bg-sand rounded-full flex items-center justify-center text-stone mx-auto">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+        </svg>
+      </div>
+      <h3 class="font-display text-xl font-semibold text-ink">Belum ada artikel ditemukan</h3>
+      <p class="text-stone text-xs max-w-sm mx-auto">Coba gunakan kata kunci pencarian lain atau pilih kategori yang berbeda.</p>
+    </div>
+
+    <!-- FEATURED ARTICLE (If All filter & no search query) -->
+    <template x-if="featuredArticle && activeCategory === 'all' && !searchQuery.trim() && !loading">
+      <a :href="`/toko/article.html?slug=${featuredArticle.slug}`" class="group block bg-white rounded-3xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-all">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-0">
+          <!-- Featured Image -->
+          <div class="lg:col-span-7 aspect-[16/9] lg:aspect-auto overflow-hidden bg-sand relative">
+            <template x-if="featuredArticle.cover_image_url">
+              <img :src="featuredArticle.cover_image_url" :alt="featuredArticle.title" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            </template>
+            <template x-if="!featuredArticle.cover_image_url">
+              <div class="w-full h-full flex items-center justify-center text-stone/40">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              </div>
+            </template>
+          </div>
+
+          <!-- Featured Details -->
+          <div class="lg:col-span-5 p-6 sm:p-8 flex flex-col justify-between space-y-4">
+            <div class="space-y-3">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sage/15 text-sage-deep border border-sage/25">
+                  Unggulan
+                </span>
+                <template x-for="cat in (featuredArticle.categories || [])" :key="cat.id">
+                  <span class="inline-flex px-2.5 py-1 rounded-full text-[10px] font-semibold bg-sand text-ink border border-border" x-text="cat.name"></span>
+                </template>
+              </div>
+
+              <h2 class="font-display text-2xl sm:text-3xl font-semibold text-ink group-hover:text-sage-deep transition-colors leading-tight" x-text="featuredArticle.title"></h2>
+              <p class="text-stone text-xs sm:text-sm line-clamp-3 leading-relaxed" x-text="featuredArticle.excerpt"></p>
+            </div>
+
+            <div class="flex items-center gap-2 text-xs text-stone border-t border-border pt-4">
+              <span x-text="formatDate(featuredArticle.published_at)"></span>
+              <span>•</span>
+              <span x-text="`${featuredArticle.readTimeMinutes} mnt baca`"></span>
+            </div>
+          </div>
+        </div>
+      </a>
+    </template>
+
+    <!-- REGULAR ARTICLES GRID -->
+    <div x-show="regularArticles.length > 0 && !loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+      <template x-for="art in regularArticles" :key="art.id">
+        <a :href="`/toko/article.html?slug=${art.slug}`" class="group bg-white rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+          
+          <div>
+            <!-- Cover image (16:9) -->
+            <div class="aspect-[16/9] bg-sand overflow-hidden relative border-b border-border">
+              <template x-if="art.cover_image_url">
+                <img :src="art.cover_image_url" :alt="art.title" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              </template>
+              <template x-if="!art.cover_image_url">
+                <div class="w-full h-full flex items-center justify-center text-stone/40">
+                  <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                </div>
+              </template>
+            </div>
+
+            <!-- Content -->
+            <div class="p-5 space-y-2.5">
+              <!-- Category Pill -->
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <template x-for="cat in (art.categories || [])" :key="cat.id">
+                  <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sage/10 text-sage-deep border border-sage/20" x-text="cat.name"></span>
+                </template>
+              </div>
+
+              <!-- Title (max 2 lines) -->
+              <h3 class="font-display text-lg font-semibold text-ink group-hover:text-sage-deep transition-colors line-clamp-2 leading-snug" x-text="art.title"></h3>
+              
+              <!-- Excerpt (max 3 lines) -->
+              <p class="text-stone text-xs line-clamp-3 leading-relaxed" x-text="art.excerpt"></p>
+            </div>
+          </div>
+
+          <!-- Card Footer (Date & Read time) -->
+          <div class="px-5 py-3.5 border-t border-border bg-sand/20 flex items-center justify-between text-[11px] text-stone">
+            <span x-text="formatDate(art.published_at)"></span>
+            <span x-text="`${art.readTimeMinutes} mnt baca`"></span>
+          </div>
+
+        </a>
+      </template>
+    </div>
+
+  </main>
+
+  <!-- Dynamic Footer -->
+  <div id="footer-container"></div>
+
+  <script type="module" src="/src/toko/inspirasi.js"></script>
+</body>
+</html>

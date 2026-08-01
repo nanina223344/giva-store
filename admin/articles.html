@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Artikel Inspirasi — Admin Panel</title>
+  <meta name="description" content="Manajemen artikel inspirasi dan blog Giva Store." />
+  <link rel="stylesheet" href="/src/style.css" />
+  <style>[x-cloak] { display: none !important; }</style>
+</head>
+
+<body
+  class="bg-cream text-ink min-h-screen font-sans antialiased"
+  x-data="articlesAdmin"
+  x-init="init()"
+  x-cloak>
+
+  <div class="flex min-h-screen">
+    <div id="admin-sidebar"></div>
+
+    <!-- Main Content Panel -->
+    <div class="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+
+      <!-- Top Bar Header -->
+      <header class="bg-cream/80 backdrop-blur border-b border-border px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-20 gap-4">
+        <div class="flex items-center gap-3 min-w-0">
+          <button
+            id="btn-hamburger"
+            onclick="openSidebar()"
+            class="lg:hidden w-11 h-11 -ml-1 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div class="min-w-0">
+            <h1 class="text-lg sm:text-2xl font-display font-semibold text-ink leading-tight truncate">Artikel Inspirasi</h1>
+            <p class="text-xs text-stone mt-0.5 hidden sm:block">Kelola konten blog, tips, dan cerita inspiratif untuk toko.</p>
+          </div>
+        </div>
+
+        <a href="/admin/article-editor.html"
+          class="inline-flex items-center gap-2 px-4 py-2.5 bg-sage hover:bg-sage-deep text-white text-xs sm:text-sm font-semibold rounded-xl transition-all shadow-sm flex-shrink-0 cursor-pointer min-h-[40px]">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          <span>Tulis Artikel Baru</span>
+        </a>
+      </header>
+
+      <!-- Main Container -->
+      <main class="flex-1 px-4 sm:px-8 py-8 w-full max-w-7xl mx-auto space-y-6">
+
+        <!-- Controls Bar (Tabs + Category Filter + Search) -->
+        <div class="bg-white rounded-2xl border border-border p-4 sm:p-6 shadow-sm space-y-4">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            
+            <!-- Tabs Filter -->
+            <div class="flex items-center gap-1.5 p-1 bg-cream border border-border rounded-xl flex-wrap">
+              <button @click="activeTab = 'all'"
+                :class="activeTab === 'all' ? 'bg-white text-ink shadow-sm font-semibold' : 'text-stone hover:text-ink font-medium'"
+                class="px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer">
+                Semua
+              </button>
+              <button @click="activeTab = 'draft'"
+                :class="activeTab === 'draft' ? 'bg-white text-amber-700 shadow-sm font-semibold' : 'text-stone hover:text-ink font-medium'"
+                class="px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer">
+                Draft
+              </button>
+              <button @click="activeTab = 'published'"
+                :class="activeTab === 'published' ? 'bg-white text-sage-deep shadow-sm font-semibold' : 'text-stone hover:text-ink font-medium'"
+                class="px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer">
+                Terbit
+              </button>
+              <button @click="activeTab = 'archived'"
+                :class="activeTab === 'archived' ? 'bg-white text-stone shadow-sm font-semibold' : 'text-stone hover:text-ink font-medium'"
+                class="px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer">
+                Arsip
+              </button>
+            </div>
+
+            <!-- Filters Right (Search & Category Dropdown) -->
+            <div class="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+              <!-- Category Filter -->
+              <select x-model="selectedCategory"
+                class="px-3 py-2 border border-border rounded-xl text-xs text-ink bg-cream/50 focus:border-sage focus:outline-none cursor-pointer min-w-[140px]">
+                <option value="all">Semua Kategori</option>
+                <template x-for="cat in categoriesList" :key="cat.id">
+                  <option :value="cat.id" x-text="cat.name"></option>
+                </template>
+              </select>
+
+              <!-- Search Input -->
+              <div class="relative flex-1 sm:w-64">
+                <svg class="w-4 h-4 text-stone absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input type="text" x-model="searchQuery" placeholder="Cari judul artikel..."
+                  class="w-full pl-9 pr-3 py-2 border border-border rounded-xl text-xs text-ink bg-cream/50 focus:bg-white focus:border-sage focus:outline-none transition-all" />
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Articles Table / Cards -->
+        <div class="bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
+
+          <!-- Loading Indicator -->
+          <div x-show="loading" class="p-12 flex justify-center">
+            <svg class="animate-spin h-8 w-8 text-sage" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </div>
+
+          <!-- Empty State -->
+          <div x-show="filteredArticles.length === 0 && !loading" class="p-12 text-center">
+            <svg class="w-12 h-12 text-stone/40 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+            </svg>
+            <h3 class="text-base font-semibold text-ink mb-1">Belum Ada Artikel</h3>
+            <p class="text-xs text-stone max-w-sm mx-auto mb-4">Tidak ada artikel yang sesuai dengan filter saat ini.</p>
+            <a href="/admin/article-editor.html" class="inline-flex items-center gap-2 px-4 py-2 bg-sage hover:bg-sage-deep text-white text-xs font-semibold rounded-xl transition-colors">
+              + Tulis Artikel Baru
+            </a>
+          </div>
+
+          <!-- Desktop Table View (>=768px) -->
+          <div x-show="filteredArticles.length > 0 && !loading" class="hidden md:block overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-border bg-sand/40 text-xs font-semibold text-stone uppercase tracking-wider">
+                  <th class="px-6 py-3.5 w-20">Cover</th>
+                  <th class="px-6 py-3.5">Judul</th>
+                  <th class="px-6 py-3.5">Kategori</th>
+                  <th class="px-6 py-3.5">Status</th>
+                  <th class="px-6 py-3.5">Tanggal Terbit</th>
+                  <th class="px-6 py-3.5 text-center">Views</th>
+                  <th class="px-6 py-3.5 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border">
+                <template x-for="item in filteredArticles" :key="item.id">
+                  <tr class="hover:bg-cream/40 transition-colors">
+                    
+                    <!-- Cover Thumbnail -->
+                    <td class="px-6 py-3.5">
+                      <div class="w-15 h-10 rounded-lg overflow-hidden bg-sand border border-border flex items-center justify-center flex-shrink-0">
+                        <template x-if="item.cover_image_url">
+                          <img :src="item.cover_image_url" :alt="item.title" class="w-full h-full object-cover" />
+                        </template>
+                        <template x-if="!item.cover_image_url">
+                          <svg class="w-5 h-5 text-stone/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </template>
+                      </div>
+                    </td>
+
+                    <!-- Judul -->
+                    <td class="px-6 py-3.5">
+                      <a :href="`/admin/article-editor.html?id=${item.id}`" class="font-semibold text-ink hover:text-sage-deep transition-colors line-clamp-1">
+                        <span x-text="item.title"></span>
+                      </a>
+                      <p class="text-xs text-stone font-mono line-clamp-1 mt-0.5" x-text="`/toko/article.html?slug=${item.slug}`"></p>
+                    </td>
+
+                    <!-- Kategori -->
+                    <td class="px-6 py-3.5">
+                      <div class="flex flex-wrap gap-1">
+                        <template x-for="cat in (item.categories || [])" :key="cat.id">
+                          <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sand text-ink border border-border" x-text="cat.name"></span>
+                        </template>
+                        <template x-if="!item.categories || item.categories.length === 0">
+                          <span class="text-xs text-stone/60">—</span>
+                        </template>
+                      </div>
+                    </td>
+
+                    <!-- Status -->
+                    <td class="px-6 py-3.5">
+                      <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border uppercase tracking-wider"
+                        :class="{
+                          'bg-sage/15 text-sage-deep border-sage/30': item.status === 'published',
+                          'bg-amber-500/15 text-amber-700 border-amber-500/30': item.status === 'draft',
+                          'bg-stone/15 text-stone border-stone/30': item.status === 'archived'
+                        }"
+                        x-text="item.status === 'published' ? 'Terbit' : (item.status === 'draft' ? 'Draft' : 'Arsip')">
+                      </span>
+                    </td>
+
+                    <!-- Tanggal Terbit -->
+                    <td class="px-6 py-3.5 text-xs text-stone font-medium whitespace-nowrap" x-text="item.published_at ? formatDate(item.published_at) : '—'"></td>
+
+                    <!-- Views -->
+                    <td class="px-6 py-3.5 text-center font-semibold text-xs text-ink" x-text="item.view_count || 0"></td>
+
+                    <!-- Aksi -->
+                    <td class="px-6 py-3.5 text-right whitespace-nowrap">
+                      <div class="flex items-center justify-end gap-1">
+                        <a :href="`/admin/article-editor.html?id=${item.id}`"
+                          class="w-8 h-8 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all cursor-pointer" title="Edit">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        </a>
+                        <a :href="`/toko/article.html?slug=${item.slug}`" target="_blank"
+                          class="w-8 h-8 rounded-lg text-stone hover:text-sage-deep hover:bg-sage/10 flex items-center justify-center transition-all cursor-pointer" title="Preview Pembaca">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </a>
+                        <button @click="confirmDelete(item)"
+                          class="w-8 h-8 rounded-lg text-stone hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-all cursor-pointer" title="Hapus">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Mobile Card View (<768px) -->
+          <div x-show="filteredArticles.length > 0 && !loading" class="md:hidden divide-y divide-border">
+            <template x-for="item in filteredArticles" :key="item.id">
+              <div class="p-4 space-y-3">
+                <div class="flex items-start gap-3">
+                  <div class="w-16 h-12 rounded-lg overflow-hidden bg-sand border border-border flex items-center justify-center flex-shrink-0">
+                    <template x-if="item.cover_image_url">
+                      <img :src="item.cover_image_url" :alt="item.title" class="w-full h-full object-cover" />
+                    </template>
+                    <template x-if="!item.cover_image_url">
+                      <svg class="w-5 h-5 text-stone/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </template>
+                  </div>
+
+                  <div class="flex-1 min-w-0">
+                    <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border uppercase mb-1"
+                      :class="{
+                        'bg-sage/15 text-sage-deep border-sage/30': item.status === 'published',
+                        'bg-amber-500/15 text-amber-700 border-amber-500/30': item.status === 'draft',
+                        'bg-stone/15 text-stone border-stone/30': item.status === 'archived'
+                      }"
+                      x-text="item.status === 'published' ? 'Terbit' : (item.status === 'draft' ? 'Draft' : 'Arsip')">
+                    </span>
+                    <a :href="`/admin/article-editor.html?id=${item.id}`" class="block font-bold text-sm text-ink line-clamp-2">
+                      <span x-text="item.title"></span>
+                    </a>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between text-xs text-stone pt-2 border-t border-border/60">
+                  <span>Terbit: <span class="font-medium text-ink" x-text="item.published_at ? formatDate(item.published_at) : '—'"></span></span>
+                  <div class="flex items-center gap-3">
+                    <a :href="`/admin/article-editor.html?id=${item.id}`" class="text-sage-deep font-semibold">Edit</a>
+                    <a :href="`/toko/article.html?slug=${item.slug}`" target="_blank" class="text-stone hover:text-ink font-medium">Preview</a>
+                    <button @click="confirmDelete(item)" class="text-red-500 font-semibold">Hapus</button>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal Hapus Artikel -->
+  <div
+    x-show="showDeleteModal"
+    x-transition:enter="transition ease-out duration-150"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-100"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4"
+    style="display:none;">
+    <div class="absolute inset-0 bg-ink/20 backdrop-blur-sm" @click="showDeleteModal = false"></div>
+    <div class="relative bg-white rounded-2xl border border-border shadow-xl p-6 w-full max-w-sm">
+      <div class="w-11 h-11 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center mb-4 text-red-500">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+      </div>
+      <h3 class="text-base font-semibold text-ink mb-1">Hapus Artikel?</h3>
+      <p class="text-sm text-stone mb-5">
+        Artikel "<span class="font-semibold text-ink" x-text="deletingArticle?.title"></span>" beserta seluruh blok isinya akan dihapus permanen.
+      </p>
+      <div class="flex gap-3">
+        <button @click="showDeleteModal = false"
+          class="flex-1 py-2.5 rounded-xl bg-sand hover:bg-border text-ink text-sm font-medium transition-colors border border-border cursor-pointer">Batal</button>
+        <button @click="deleteArticle()" :disabled="deletingLoading"
+          class="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer">
+          <span x-text="deletingLoading ? 'Menghapus...' : 'Hapus'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Alert -->
+  <div x-show="alert.show"
+    x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="opacity-0 translate-y-4"
+    x-transition:enter-end="opacity-100 translate-y-0"
+    x-transition:leave="transition ease-in duration-200"
+    x-transition:leave-start="opacity-100 translate-y-0"
+    x-transition:leave-end="opacity-0 translate-y-4"
+    class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border"
+    :class="alert.type === 'success' ? 'bg-sage text-white border-sage-deep' : 'bg-red-500 text-white border-red-600'"
+    style="display: none;">
+    <span class="text-sm font-medium" x-text="alert.message"></span>
+    <button @click="alert.show = false" class="text-white/80 hover:text-white">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+
+  <script type="module" src="/src/admin/articles.js"></script>
+</body>
+</html>
