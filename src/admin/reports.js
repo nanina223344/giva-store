@@ -120,9 +120,22 @@ Alpine.data('reportsAdmin', () => ({
   stockMovementsLog: [],
   stockMovementSearch: '',
 
+  // Tab 7: Arus Kas State & Expenses
+  expensesData: [],
+  cashFlowSummary: {
+    salesRevenue: 0,
+    nonSalesIncome: 0,
+    nonSalesExpense: 0,
+    totalHpp: 0,
+    labaBersihEstimasi: 0,
+  },
+  cashFlowList: [],
+  rawCashFlowItems: [],
+
   // Chart Instances
   revenueChartInstance: null,
   paymentChartInstance: null,
+  cashFlowChartInstance: null,
 
   async init() {
     try {
@@ -318,7 +331,17 @@ Alpine.data('reportsAdmin', () => ({
 
       this.purchases = purchData || []
 
-      // 7. Fetch all-time sale_items for non-moving "last sold" date
+      // 7. Fetch Expenses & Non-sales Income in Date Range
+      const { data: expData } = await supabase
+        .from('expenses')
+        .select('*, staff(name)')
+        .gte('date', this.startDate)
+        .lte('date', this.endDate + 'T23:59:59')
+        .order('date', { ascending: false })
+
+      this.expensesData = expData || []
+
+      // 8. Fetch all-time sale_items for non-moving "last sold" date
       await this.fetchLastSoldData()
 
       // Process calculations for all tabs
@@ -328,6 +351,7 @@ Alpine.data('reportsAdmin', () => ({
       this.processPelangganTab()
       this.processPembelianTab()
       this.processStokTab()
+      this.processArusKasTab()
 
       // Render Charts after Alpine DOM is ready
       this.$nextTick(() => {
@@ -601,6 +625,77 @@ Alpine.data('reportsAdmin', () => ({
             tooltip: {
               callbacks: {
                 label: (ctx) => ` ${ctx.label}: Rp ${ctx.raw.toLocaleString('id-ID')}`,
+              },
+            },
+          },
+        },
+      })
+    }
+
+    // 3. Cash Flow Stacked Bar Chart
+    const cashCtx = document.getElementById('chartCashFlow')
+    if (cashCtx) {
+      if (this.cashFlowChartInstance) this.cashFlowChartInstance.destroy()
+
+      const dailyCashMap = {}
+      const start = new Date(this.startDate + 'T00:00:00')
+      const end = new Date(this.endDate + 'T23:59:59')
+
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const key = this.formatInputDate(d)
+        dailyCashMap[key] = { in: 0, out: 0 }
+      }
+
+      ;(this.rawCashFlowItems || []).forEach((item) => {
+        if (!item.date) return
+        const key = item.date.substring(0, 10)
+        if (dailyCashMap[key]) {
+          dailyCashMap[key].in += item.in || 0
+          dailyCashMap[key].out += item.out || 0
+        }
+      })
+
+      const labels = Object.keys(dailyCashMap)
+      const dataIn = labels.map((k) => dailyCashMap[k].in)
+      const dataOut = labels.map((k) => dailyCashMap[k].out)
+
+      this.cashFlowChartInstance = new Chart(cashCtx, {
+        type: 'bar',
+        data: {
+          labels: labels.map((l) => {
+            const parts = l.split('-')
+            return `${parts[2]}/${parts[1]}`
+          }),
+          datasets: [
+            {
+              label: 'Uang Masuk (Rp)',
+              data: dataIn,
+              backgroundColor: '#8FA07E',
+              borderRadius: 6,
+            },
+            {
+              label: 'Uang Keluar (Rp)',
+              data: dataOut,
+              backgroundColor: '#D97706',
+              borderRadius: 6,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ${ctx.dataset.label}: Rp ${ctx.raw.toLocaleString('id-ID')}`,
+              },
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => 'Rp ' + (value / 1000).toLocaleString('id-ID') + 'k',
               },
             },
           },
@@ -1029,6 +1124,102 @@ Alpine.data('reportsAdmin', () => ({
     if (!this.stockMovementSearch.trim()) return this.stockMovementsLog
     const q = this.stockMovementSearch.trim().toLowerCase()
     return this.stockMovementsLog.filter((log) => log.product_name.toLowerCase().includes(q))
+  },
+
+  // TAB 7: Arus Kas Logic
+  processArusKasTab() {
+    // 1. Sales Revenue (paid sales)
+    const paidSales = this.sales.filter((s) => s.payment_status === 'paid')
+    const salesRev = paidSales.reduce((acc, s) => acc + (s.total_amount || 0), 0)
+
+    // 2. Non-Sales Income & Expenses
+    let nonSalesInc = 0
+    let nonSalesExp = 0
+
+    ;(this.expensesData || []).forEach((e) => {
+      const amt = Number(e.amount || 0)
+      if (e.type === 'income') nonSalesInc += amt
+      else if (e.type === 'expense') nonSalesExp += amt
+    })
+
+    // 3. HPP
+    const paidSalesSet = new Set(paidSales.map((s) => s.id))
+    let totalHpp = 0
+    this.saleItems.forEach((item) => {
+      if (paidSalesSet.has(item.sale_id)) {
+        const cost = item.cost_price || item.product_variants?.cost_price || 0
+        totalHpp += cost * (item.quantity || 0)
+      }
+    })
+
+    // Laba Bersih Estimasi = Pendapatan Penjualan + Pemasukan Non-Sales - Pengeluaran Non-Sales - HPP
+    const labaBersih = salesRev + nonSalesInc - nonSalesExp - totalHpp
+
+    this.cashFlowSummary = {
+      salesRevenue: salesRev,
+      nonSalesIncome: nonSalesInc,
+      nonSalesExpense: nonSalesExp,
+      totalHpp,
+      labaBersihEstimasi: labaBersih,
+    }
+
+    // Build combined cash flow transaction items
+    const items = []
+
+    // Sales (Masuk)
+    paidSales.forEach((s) => {
+      items.push({
+        date: s.created_at ? s.created_at.split('T')[0] : '',
+        fullDate: s.created_at,
+        jenis: 'Penjualan',
+        keterangan: `Penjualan #${s.id.slice(0, 8)} (${s.channel === 'online' ? 'Online' : 'Kasir POS'})`,
+        in: s.total_amount || 0,
+        out: 0,
+      })
+    })
+
+    // Received Purchases (Keluar)
+    this.purchases.forEach((po) => {
+      if (po.status === 'received') {
+        items.push({
+          date: po.received_date || (po.order_date ? po.order_date.split('T')[0] : ''),
+          fullDate: po.received_date || po.order_date,
+          jenis: 'Pembelian (PO)',
+          keterangan: `PO ${po.po_number || '#' + po.id} (${po.suppliers?.name || 'Supplier'})`,
+          in: 0,
+          out: po.total_amount || 0,
+        })
+      }
+    })
+
+    // Expenses (Income or Expense)
+    ;(this.expensesData || []).forEach((e) => {
+      const isInc = e.type === 'income'
+      items.push({
+        date: e.date ? e.date.split('T')[0] : '',
+        fullDate: e.date,
+        jenis: isInc ? 'Pemasukan Non-Sales' : 'Pengeluaran Operasional',
+        keterangan: `[${e.category || 'Umum'}] ${e.description}`,
+        in: isInc ? (e.amount || 0) : 0,
+        out: isInc ? 0 : (e.amount || 0),
+      })
+    })
+
+    this.rawCashFlowItems = items
+
+    // Sort ascending by date to calculate cumulative balance
+    const sortedAsc = [...items].sort((a, b) => new Date(a.fullDate || a.date) - new Date(b.fullDate || b.date))
+    let runningBalance = 0
+    const withCumulative = sortedAsc.map((item) => {
+      runningBalance += (item.in - item.out)
+      return {
+        ...item,
+        saldoKumulatif: runningBalance,
+      }
+    })
+
+    // Display latest first
+    this.cashFlowList = withCumulative.reverse()
   },
 
   formatDate(dateStr) {

@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Keuangan — Admin Giva Store</title>
+  <meta name="description" content="Manajemen Pengeluaran & Pemasukan Giva Store." />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+
+<body
+  class="bg-cream text-ink min-h-screen font-sans antialiased"
+  x-data="expensesAdmin"
+  x-init="init()"
+  x-cloak>
+
+  <div class="flex min-h-screen">
+
+    <div id="admin-sidebar"></div>
+
+    <!-- ── Main Content ──────────────────────────────────────────────── -->
+    <div class="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+
+      <!-- Top bar -->
+      <header class="bg-cream/80 backdrop-blur border-b border-border px-4 sm:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-20">
+        <div class="flex items-center gap-3 min-w-0">
+          <button
+            id="btn-hamburger"
+            onclick="openSidebar()"
+            class="lg:hidden w-11 h-11 -ml-1 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div class="min-w-0">
+            <h1 class="text-lg sm:text-2xl font-display font-semibold text-ink leading-tight truncate">Keuangan</h1>
+            <p class="text-xs text-stone mt-0.5 hidden sm:block">Kelola pengeluaran operasional dan pemasukan non-transaksional.</p>
+          </div>
+        </div>
+
+        <!-- Filter Tanggal & Action Buttons -->
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+          <!-- Date Range Picker -->
+          <div class="flex items-center gap-1.5 bg-white border border-border rounded-xl px-3 py-1.5 shadow-sm text-xs">
+            <svg class="w-4 h-4 text-stone flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <input type="date" x-model="dateRange.startDate" @change="onDateRangeChange()" class="bg-transparent text-ink font-medium focus:outline-none cursor-pointer" />
+            <span class="text-stone font-semibold">s/d</span>
+            <input type="date" x-model="dateRange.endDate" @change="onDateRangeChange()" class="bg-transparent text-ink font-medium focus:outline-none cursor-pointer" />
+          </div>
+
+          <!-- Kelola Kategori Button -->
+          <button @click="openCategoryModal()"
+            class="inline-flex items-center gap-1.5 px-3 py-2 bg-sand hover:bg-border text-ink text-xs font-semibold rounded-xl transition-colors border border-border cursor-pointer shadow-sm min-h-[38px]">
+            <svg class="w-4 h-4 text-stone" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            <span>Kategori</span>
+          </button>
+
+          <!-- Export CSV Button -->
+          <button @click="exportCSV()"
+            class="inline-flex items-center gap-1.5 px-3 py-2 bg-sand hover:bg-border text-ink text-xs font-semibold rounded-xl transition-colors border border-border cursor-pointer shadow-sm min-h-[38px]">
+            <svg class="w-4 h-4 text-stone" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span>Export CSV</span>
+          </button>
+
+          <!-- Tombol + Catat Transaksi -->
+          <button @click="openAddTransactionModal('expense')"
+            class="inline-flex items-center gap-1.5 px-4 py-2 bg-sage hover:bg-sage-deep text-white text-xs font-semibold rounded-xl transition-colors shadow-sm cursor-pointer min-h-[38px]">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            <span>Catat Transaksi</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Content Container -->
+      <main class="flex-1 px-4 sm:px-8 py-8 w-full max-w-7xl mx-auto space-y-8">
+
+        <!-- Loading Indicator -->
+        <div x-show="loading && expensesList.length === 0" class="flex justify-center py-16">
+          <svg class="animate-spin h-8 w-8 text-sage" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+
+        <!-- Content Loaded -->
+        <div class="space-y-8">
+
+          <!-- ── RINGKASAN (3 Kartu Status) ─────────────────────────────────── -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <!-- Total Pemasukan -->
+            <div class="bg-white rounded-2xl border border-border p-6 shadow-sm flex items-center gap-4">
+              <div class="w-12 h-12 rounded-2xl bg-sage/15 border border-sage/30 flex items-center justify-center text-sage-deep flex-shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Total Pemasukan</p>
+                <p class="text-xl sm:text-2xl font-display font-semibold text-sage-deep mt-1 truncate" x-text="formatPrice(summary.totalIncome)"></p>
+                <p class="text-[11px] text-stone mt-0.5">Pendapatan non-transaksional</p>
+              </div>
+            </div>
+
+            <!-- Total Pengeluaran -->
+            <div class="bg-white rounded-2xl border border-border p-6 shadow-sm flex items-center gap-4">
+              <div class="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 flex-shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6" />
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Total Pengeluaran</p>
+                <p class="text-xl sm:text-2xl font-display font-semibold text-amber-600 mt-1 truncate" x-text="formatPrice(summary.totalExpense)"></p>
+                <p class="text-[11px] text-stone mt-0.5">Biaya operasional & beban</p>
+              </div>
+            </div>
+
+            <!-- Saldo Bersih -->
+            <div class="bg-white rounded-2xl border border-border p-6 shadow-sm flex items-center gap-4">
+              <div class="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                :class="summary.netBalance >= 0 ? 'bg-sage/15 border border-sage/30 text-sage-deep' : 'bg-red-500/15 border border-red-500/30 text-red-600'">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <p class="text-xs font-semibold text-stone uppercase tracking-wider">Saldo Arus Kas</p>
+                <p class="text-xl sm:text-2xl font-display font-semibold mt-1 truncate"
+                  :class="summary.netBalance >= 0 ? 'text-sage-deep' : 'text-red-600'"
+                  x-text="formatPrice(summary.netBalance)"></p>
+                <p class="text-[11px] text-stone mt-0.5" x-text="summary.netBalance >= 0 ? 'Surplus (Pemasukan > Pengeluaran)' : 'Defisit (Pengeluaran > Pemasukan)'"></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── TABEL & FILTER ─────────────────────────────────────────────── -->
+          <div class="bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
+            
+            <!-- Controls Bar (Tabs + Search) -->
+            <div class="p-4 sm:p-6 border-b border-border bg-sand/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <!-- Tabs Filter -->
+              <div class="flex items-center gap-1.5 p-1 bg-cream border border-border rounded-xl">
+                <button @click="setTab('all')"
+                  :class="activeTab === 'all' ? 'bg-white text-ink shadow-sm font-semibold' : 'text-stone hover:text-ink font-medium'"
+                  class="px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer">
+                  Semua
+                </button>
+                <button @click="setTab('expense')"
+                  :class="activeTab === 'expense' ? 'bg-white text-amber-600 shadow-sm font-semibold' : 'text-stone hover:text-ink font-medium'"
+                  class="px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                  Pengeluaran
+                </button>
+                <button @click="setTab('income')"
+                  :class="activeTab === 'income' ? 'bg-white text-sage-deep shadow-sm font-semibold' : 'text-stone hover:text-ink font-medium'"
+                  class="px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-sage"></span>
+                  Pemasukan
+                </button>
+              </div>
+
+              <!-- Search Input -->
+              <div class="relative w-full sm:w-64">
+                <svg class="w-4 h-4 text-stone absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input type="text" x-model="searchQuery" @input.debounce.300ms="onSearchInput()" placeholder="Cari deskripsi, kategori..."
+                  class="w-full pl-9 pr-3 py-2 border border-border rounded-xl text-xs text-ink bg-cream/50 focus:bg-white focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all" />
+              </div>
+            </div>
+
+            <!-- Empty State -->
+            <div x-show="expensesList.length === 0 && !loading" class="p-12 text-center">
+              <svg class="w-12 h-12 text-stone/40 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 14l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <h3 class="text-base font-semibold text-ink mb-1">Belum ada catatan transaksi</h3>
+              <p class="text-xs text-stone max-w-sm mx-auto mb-4">Belum ada pengeluaran atau pemasukan yang dicatat pada rentang tanggal ini.</p>
+              <button @click="openAddTransactionModal('expense')" class="inline-flex items-center gap-2 px-4 py-2 bg-sage hover:bg-sage-deep text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer">
+                + Catat Transaksi Baru
+              </button>
+            </div>
+
+            <!-- Desktop Table View (>=768px) -->
+            <div x-show="expensesList.length > 0" class="hidden md:block overflow-x-auto">
+              <table class="w-full text-left text-sm">
+                <thead>
+                  <tr class="border-b border-border bg-sand/40 text-xs font-semibold text-stone uppercase tracking-wider">
+                    <th class="px-6 py-3.5">Tanggal</th>
+                    <th class="px-6 py-3.5">Kategori</th>
+                    <th class="px-6 py-3.5">Deskripsi</th>
+                    <th class="px-6 py-3.5">Metode Bayar</th>
+                    <th class="px-6 py-3.5">Ref. No</th>
+                    <th class="px-6 py-3.5 text-right">Jumlah</th>
+                    <th class="px-6 py-3.5">Dicatat Oleh</th>
+                    <th class="px-6 py-3.5 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border">
+                  <template x-for="item in expensesList" :key="item.id">
+                    <tr class="hover:bg-cream/40 transition-colors">
+                      <!-- Tanggal -->
+                      <td class="px-6 py-4 whitespace-nowrap text-xs text-ink font-medium" x-text="item.date ? item.date.split('T')[0] : '—'"></td>
+
+                      <!-- Kategori -->
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold border"
+                          :class="item.type === 'income' ? 'bg-sage/10 text-sage-deep border-sage/25' : 'bg-amber-500/10 text-amber-700 border-amber-500/25'"
+                          x-text="item.category">
+                        </span>
+                      </td>
+
+                      <!-- Deskripsi -->
+                      <td class="px-6 py-4">
+                        <p class="text-sm font-medium text-ink line-clamp-1" x-text="item.description"></p>
+                        <template x-if="item.notes">
+                          <p class="text-xs text-stone/80 line-clamp-1 mt-0.5" x-text="item.notes"></p>
+                        </template>
+                      </td>
+
+                      <!-- Metode Bayar -->
+                      <td class="px-6 py-4 whitespace-nowrap text-xs text-stone font-medium" x-text="item.payment_method || 'Cash'"></td>
+
+                      <!-- Ref No -->
+                      <td class="px-6 py-4 whitespace-nowrap text-xs text-stone font-mono" x-text="item.reference_no || '—'"></td>
+
+                      <!-- Jumlah (Hijau untuk Pemasukan, Merah untuk Pengeluaran) -->
+                      <td class="px-6 py-4 whitespace-nowrap text-right font-semibold text-sm"
+                        :class="item.type === 'income' ? 'text-sage-deep' : 'text-amber-600'">
+                        <span x-text="item.type === 'income' ? '+ ' : '- '"></span>
+                        <span x-text="formatPrice(item.amount)"></span>
+                      </td>
+
+                      <!-- Dicatat Oleh -->
+                      <td class="px-6 py-4 whitespace-nowrap text-xs text-stone" x-text="item.staff?.name || 'Admin'"></td>
+
+                      <!-- Aksi -->
+                      <td class="px-6 py-4 whitespace-nowrap text-right">
+                        <div class="flex items-center justify-end gap-1">
+                          <button @click="openEditTransactionModal(item)"
+                            class="w-8 h-8 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all cursor-pointer"
+                            title="Edit">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button @click="confirmDeleteTransaction(item)"
+                            class="w-8 h-8 rounded-lg text-stone hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-all cursor-pointer"
+                            title="Hapus">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Mobile Card View (<768px) -->
+            <div x-show="expensesList.length > 0" class="md:hidden divide-y divide-border">
+              <template x-for="item in expensesList" :key="item.id">
+                <div class="p-4 space-y-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                      <span class="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border"
+                        :class="item.type === 'income' ? 'bg-sage/15 text-sage-deep border-sage/30' : 'bg-amber-500/15 text-amber-700 border-amber-500/30'"
+                        x-text="item.type === 'income' ? 'Pemasukan' : 'Pengeluaran'"></span>
+                      <span class="text-xs text-stone" x-text="item.date ? item.date.split('T')[0] : ''"></span>
+                    </div>
+                    <span class="font-bold text-sm" :class="item.type === 'income' ? 'text-sage-deep' : 'text-amber-600'">
+                      <span x-text="item.type === 'income' ? '+ ' : '- '"></span>
+                      <span x-text="formatPrice(item.amount)"></span>
+                    </span>
+                  </div>
+
+                  <div>
+                    <h4 class="text-sm font-semibold text-ink" x-text="item.description"></h4>
+                    <p class="text-xs text-stone mt-0.5">Kategori: <span class="font-medium text-ink" x-text="item.category"></span> • <span x-text="item.payment_method || 'Cash'"></span></p>
+                    <template x-if="item.reference_no">
+                      <p class="text-xs text-stone/80 font-mono mt-0.5">Ref: <span x-text="item.reference_no"></span></p>
+                    </template>
+                  </div>
+
+                  <div class="flex items-center justify-between pt-2 border-t border-border/60 text-xs text-stone">
+                    <span>Oleh: <span class="font-medium text-ink" x-text="item.staff?.name || 'Admin'"></span></span>
+                    <div class="flex items-center gap-2">
+                      <button @click="openEditTransactionModal(item)" class="text-sage-deep font-semibold hover:underline">Edit</button>
+                      <span>•</span>
+                      <button @click="confirmDeleteTransaction(item)" class="text-red-500 font-semibold hover:underline">Hapus</button>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- Footer Pagination -->
+            <div x-show="totalItems > 0" class="px-6 py-4 border-t border-border bg-sand/30 flex items-center justify-between gap-4">
+              <p class="text-xs text-stone">
+                Menampilkan <span class="font-semibold text-ink" x-text="Math.min((currentPage - 1) * pageSize + 1, totalItems)"></span> -
+                <span class="font-semibold text-ink" x-text="Math.min(currentPage * pageSize, totalItems)"></span> dari
+                <span class="font-semibold text-ink" x-text="totalItems"></span> transaksi
+              </p>
+              <div class="flex items-center gap-2">
+                <button @click="prevPage()" :disabled="currentPage === 1"
+                  class="px-3 py-1.5 rounded-lg border border-border bg-white text-xs font-semibold text-ink hover:bg-sand disabled:opacity-50 transition-colors cursor-pointer">
+                  Sebelumnya
+                </button>
+                <span class="text-xs font-medium text-ink px-2" x-text="`${currentPage} / ${totalPages}`"></span>
+                <button @click="nextPage()" :disabled="currentPage >= totalPages"
+                  class="px-3 py-1.5 rounded-lg border border-border bg-white text-xs font-semibold text-ink hover:bg-sand disabled:opacity-50 transition-colors cursor-pointer">
+                  Selanjutnya
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </main>
+
+    </div>
+  </div>
+
+  <!-- ── MODAL FORM TAMBAH / EDIT TRANSAKSI ─────────────────────────────── -->
+  <div
+    x-show="showTransactionModal"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    @keydown.escape.window="closeTransactionModal()"
+    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+    style="display:none;">
+    <div class="absolute inset-0 bg-ink/20 backdrop-blur-sm" @click="closeTransactionModal()"></div>
+    <div
+      x-show="showTransactionModal"
+      x-transition:enter="transition ease-out duration-200"
+      x-transition:enter-start="opacity-0 translate-y-4 sm:scale-95"
+      x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave="transition ease-in duration-150"
+      x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave-end="opacity-0 translate-y-4 sm:scale-95"
+      class="relative w-full sm:max-w-lg bg-white sm:border border-t sm:border-border sm:rounded-2xl rounded-t-2xl overflow-hidden shadow-xl max-h-[90vh] flex flex-col">
+
+      <!-- Header -->
+      <div class="px-6 pt-5 pb-4 border-b border-border flex items-center justify-between flex-shrink-0">
+        <div class="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-border sm:hidden"></div>
+        <h3 class="text-base font-semibold text-ink mt-2 sm:mt-0" x-text="editingTransaction ? 'Edit Catatan Transaksi' : 'Catat Transaksi Baru'"></h3>
+        <button @click="closeTransactionModal()" class="w-8 h-8 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Body Form -->
+      <form @submit.prevent="saveTransaction()" class="px-6 py-5 space-y-4 overflow-y-auto flex-1">
+
+        <!-- Type Selector (Radio Pill) -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold uppercase text-stone">Tipe Transaksi <span class="text-red-500">*</span></label>
+          <div class="grid grid-cols-2 gap-2 p-1 bg-cream border border-border rounded-xl">
+            <button type="button" @click="onTypeChange('expense')"
+              :class="transactionForm.type === 'expense' ? 'bg-amber-500 text-white font-semibold shadow-sm' : 'text-stone hover:text-ink font-medium'"
+              class="py-2.5 rounded-lg text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5">
+              <span>Pengeluaran</span>
+            </button>
+            <button type="button" @click="onTypeChange('income')"
+              :class="transactionForm.type === 'income' ? 'bg-sage text-white font-semibold shadow-sm' : 'text-stone hover:text-ink font-medium'"
+              class="py-2.5 rounded-lg text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5">
+              <span>Pemasukan</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Tanggal & Kategori -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <label class="block text-xs font-semibold uppercase text-stone">Tanggal <span class="text-red-500">*</span></label>
+            <input type="date" x-model="transactionForm.date" required
+              class="w-full px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all bg-cream/50 cursor-pointer" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="block text-xs font-semibold uppercase text-stone">Kategori <span class="text-red-500">*</span></label>
+            <select x-model="transactionForm.category" required
+              class="w-full px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all bg-cream/50 cursor-pointer">
+              <template x-for="cat in filteredCategoriesForForm" :key="cat.id">
+                <option :value="cat.name" x-text="cat.name"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+
+        <!-- Deskripsi -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold uppercase text-stone">Deskripsi Transaksi <span class="text-red-500">*</span></label>
+          <input type="text" x-model="transactionForm.description" placeholder="cth: Bayar tagihan listrik bulanan, Pembelian ATK..." required
+            class="w-full px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all bg-cream/50" />
+        </div>
+
+        <!-- Amount & Metode Pembayaran -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <label class="block text-xs font-semibold uppercase text-stone">Jumlah Nominal (Rp) <span class="text-red-500">*</span></label>
+            <input type="number" x-model="transactionForm.amount" placeholder="0" min="1" required
+              class="w-full px-3 py-2 border border-border rounded-xl text-sm font-semibold text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all bg-cream/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="block text-xs font-semibold uppercase text-stone">Metode Pembayaran</label>
+            <select x-model="transactionForm.payment_method"
+              class="w-full px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all bg-cream/50 cursor-pointer">
+              <option value="Cash">Cash / Tunai</option>
+              <option value="Transfer">Transfer Bank</option>
+              <option value="Debit">Debit / Kartu</option>
+              <option value="Lain-lain">Lain-lain</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Nomor Referensi -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold uppercase text-stone">Nomor Referensi / Bukti <span class="text-stone font-normal">(opsional)</span></label>
+          <input type="text" x-model="transactionForm.reference_no" placeholder="cth: INV-2026/08/001, No. Kwitansi..."
+            class="w-full px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all bg-cream/50" />
+        </div>
+
+        <!-- Catatan tambahan -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold uppercase text-stone">Catatan <span class="text-stone font-normal">(opsional)</span></label>
+          <textarea x-model="transactionForm.notes" rows="2" placeholder="Catatan atau keterangan tambahan..."
+            class="w-full px-3 py-2 border border-border rounded-xl text-sm text-ink focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none transition-all bg-cream/50"></textarea>
+        </div>
+
+        <div class="flex gap-3 pt-3 flex-shrink-0">
+          <button type="button" @click="closeTransactionModal()"
+            class="flex-1 py-2.5 rounded-xl bg-sand hover:bg-border text-ink text-sm font-medium transition-colors border border-border cursor-pointer">
+            Batal
+          </button>
+          <button type="submit" :disabled="savingTransaction"
+            class="flex-[2] py-2.5 rounded-xl bg-sage hover:bg-sage-deep text-white text-sm font-semibold transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm">
+            <svg x-show="savingTransaction" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            <span x-text="savingTransaction ? 'Menyimpan...' : (editingTransaction ? 'Simpan Perubahan' : 'Simpan Transaksi')"></span>
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ── MODAL KONFIRMASI HAPUS TRANSAKSI ──────────────────────────────── -->
+  <div
+    x-show="showDeleteTransactionModal"
+    x-transition:enter="transition ease-out duration-150"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-100"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4"
+    style="display:none;">
+    <div class="absolute inset-0 bg-ink/20 backdrop-blur-sm" @click="showDeleteTransactionModal = false"></div>
+    <div class="relative bg-white rounded-2xl border border-border shadow-xl p-6 w-full max-w-sm">
+      <div class="w-11 h-11 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center mb-4 text-red-500">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+      </div>
+      <h3 class="text-base font-semibold text-ink mb-1">Hapus Transaksi?</h3>
+      <p class="text-sm text-stone mb-5">
+        Transaksi "<span class="font-semibold text-ink" x-text="deletingTransaction?.description"></span>" senilai <span class="font-semibold text-ink" x-text="formatPrice(deletingTransaction?.amount)"></span> akan dihapus permanen.
+      </p>
+      <div class="flex gap-3">
+        <button @click="showDeleteTransactionModal = false"
+          class="flex-1 py-2.5 rounded-xl bg-sand hover:bg-border text-ink text-sm font-medium transition-colors border border-border cursor-pointer">Batal</button>
+        <button @click="deleteTransaction()" :disabled="deletingTransactionLoading"
+          class="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer">
+          <span x-text="deletingTransactionLoading ? 'Menghapus...' : 'Hapus'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL MANAJEMEN KATEGORI ───────────────────────────────────────── -->
+  <div
+    x-show="showCategoryModal"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    @keydown.escape.window="showCategoryModal = false"
+    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+    style="display:none;">
+    <div class="absolute inset-0 bg-ink/20 backdrop-blur-sm" @click="showCategoryModal = false"></div>
+    <div
+      x-show="showCategoryModal"
+      x-transition:enter="transition ease-out duration-200"
+      x-transition:enter-start="opacity-0 translate-y-4 sm:scale-95"
+      x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave="transition ease-in duration-150"
+      x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+      x-transition:leave-end="opacity-0 translate-y-4 sm:scale-95"
+      class="relative w-full sm:max-w-md bg-white sm:border border-t sm:border-border sm:rounded-2xl rounded-t-2xl overflow-hidden shadow-xl max-h-[85vh] flex flex-col">
+
+      <!-- Header -->
+      <div class="px-6 pt-5 pb-4 border-b border-border flex items-center justify-between flex-shrink-0">
+        <h3 class="text-base font-semibold text-ink">Kelola Kategori Keuangan</h3>
+        <button @click="showCategoryModal = false" class="w-8 h-8 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-6 space-y-4 overflow-y-auto flex-1">
+
+        <!-- Tab Tipe Kategori -->
+        <div class="grid grid-cols-2 gap-2 p-1 bg-cream border border-border rounded-xl">
+          <button type="button" @click="categoryTypeTab = 'expense'"
+            :class="categoryTypeTab === 'expense' ? 'bg-amber-500 text-white font-semibold shadow-sm' : 'text-stone hover:text-ink font-medium'"
+            class="py-2 rounded-lg text-xs transition-all cursor-pointer">
+            Kategori Pengeluaran
+          </button>
+          <button type="button" @click="categoryTypeTab = 'income'"
+            :class="categoryTypeTab === 'income' ? 'bg-sage text-white font-semibold shadow-sm' : 'text-stone hover:text-ink font-medium'"
+            class="py-2 rounded-lg text-xs transition-all cursor-pointer">
+            Kategori Pemasukan
+          </button>
+        </div>
+
+        <!-- Form Tambah Kategori Baru -->
+        <form @submit.prevent="addCategory()" class="flex gap-2">
+          <input type="text" x-model="newCategoryName" placeholder="Tambah nama kategori baru..." required
+            class="flex-1 px-3 py-2 border border-border rounded-xl text-xs text-ink bg-cream/50 focus:bg-white focus:border-sage focus:ring-1 focus:ring-sage focus:outline-none" />
+          <button type="submit" :disabled="savingCategory"
+            class="px-4 py-2 bg-sage hover:bg-sage-deep text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50 cursor-pointer flex-shrink-0">
+            <span x-text="savingCategory ? '...' : 'Tambah'"></span>
+          </button>
+        </form>
+
+        <!-- List Kategori -->
+        <div class="divide-y divide-border border border-border rounded-xl overflow-hidden bg-cream/30">
+          <template x-for="cat in modalFilteredCategories" :key="cat.id">
+            <div class="p-3 flex items-center justify-between gap-3 bg-white">
+
+              <!-- Direct inline edit name mode -->
+              <template x-if="editingCategory && editingCategory.id === cat.id">
+                <div class="flex-1 flex gap-2 items-center">
+                  <input type="text" x-model="editingCategoryName" @keydown.enter.prevent="saveEditCategory(cat)"
+                    class="flex-1 px-2.5 py-1.5 border border-sage rounded-lg text-xs text-ink focus:outline-none bg-cream" />
+                  <button @click="saveEditCategory(cat)" class="px-2.5 py-1.5 bg-sage text-white text-xs font-semibold rounded-lg">Simpan</button>
+                  <button @click="cancelEditCategory()" class="px-2.5 py-1.5 bg-sand text-ink text-xs font-medium rounded-lg">Batal</button>
+                </div>
+              </template>
+
+              <!-- Normal display mode -->
+              <template x-if="!editingCategory || editingCategory.id !== cat.id">
+                <div class="flex-1 flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="text-xs font-medium text-ink truncate" x-text="cat.name"></span>
+                    <span :class="cat.is_active ? 'bg-sage/10 text-sage-deep border-sage/25' : 'bg-stone/10 text-stone border-stone/20'"
+                      class="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+                      x-text="cat.is_active ? 'Aktif' : 'Nonaktif'"></span>
+                  </div>
+
+                  <div class="flex items-center gap-1.5 flex-shrink-0">
+                    <!-- Toggle active -->
+                    <button type="button" @click="toggleCategoryActive(cat)"
+                      :class="cat.is_active ? 'bg-sage' : 'bg-border'"
+                      class="relative inline-flex w-8 h-4.5 rounded-full transition-colors duration-200 cursor-pointer align-middle"
+                      :title="cat.is_active ? 'Nonaktifkan' : 'Aktifkan'">
+                      <span :class="cat.is_active ? 'translate-x-3.5' : 'translate-x-0'"
+                        class="inline-block w-3.5 h-3.5 mt-0.5 ml-0.5 bg-white rounded-full shadow transition-transform duration-200"></span>
+                    </button>
+
+                    <!-- Edit button -->
+                    <button @click="startEditCategory(cat)" class="p-1 text-stone hover:text-ink rounded" title="Edit nama">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    </button>
+
+                    <!-- Delete button -->
+                    <button @click="confirmDeleteCategory(cat)" class="p-1 text-stone hover:text-red-500 rounded" title="Hapus kategori">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </div>
+                </div>
+              </template>
+
+            </div>
+          </template>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL KONFIRMASI HAPUS KATEGORI ────────────────────────────────── -->
+  <div
+    x-show="showDeleteCategoryModal"
+    x-transition:enter="transition ease-out duration-150"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-100"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4"
+    style="display:none;">
+    <div class="absolute inset-0 bg-ink/20 backdrop-blur-sm" @click="showDeleteCategoryModal = false"></div>
+    <div class="relative bg-white rounded-2xl border border-border shadow-xl p-6 w-full max-w-sm">
+      <div class="w-11 h-11 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center mb-4 text-red-500">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+      </div>
+      <h3 class="text-base font-semibold text-ink mb-1">Hapus Kategori?</h3>
+      <p class="text-sm text-stone mb-5">
+        Kategori "<span class="font-semibold text-ink" x-text="deletingCategory?.name"></span>" akan dihapus permanen.
+      </p>
+      <div class="flex gap-3">
+        <button @click="showDeleteCategoryModal = false"
+          class="flex-1 py-2.5 rounded-xl bg-sand hover:bg-border text-ink text-sm font-medium transition-colors border border-border cursor-pointer">Batal</button>
+        <button @click="deleteCategory()" :disabled="deletingCategoryLoading"
+          class="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer">
+          <span x-text="deletingCategoryLoading ? 'Menghapus...' : 'Hapus'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Alert -->
+  <div x-show="alert.show"
+    x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="opacity-0 translate-y-4"
+    x-transition:enter-end="opacity-100 translate-y-0"
+    x-transition:leave="transition ease-in duration-200"
+    x-transition:leave-start="opacity-100 translate-y-0"
+    x-transition:leave-end="opacity-0 translate-y-4"
+    class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border"
+    :class="alert.type === 'success' ? 'bg-sage text-white border-sage-deep' : 'bg-red-500 text-white border-red-600'"
+    style="display: none;">
+    <span class="text-sm font-medium" x-text="alert.message"></span>
+    <button @click="alert.show = false" class="text-white/80 hover:text-white">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+
+  <script type="module" src="/src/admin/expenses.js"></script>
+</body>
+</html>

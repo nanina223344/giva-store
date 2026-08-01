@@ -24,6 +24,7 @@ export default defineConfig({
         adminOrders:    resolve(__dirname, 'admin/orders.html'),
         adminSections:  resolve(__dirname, 'admin/sections.html'),
         adminDiscounts: resolve(__dirname, 'admin/discounts.html'),
+        adminExpenses:  resolve(__dirname, 'admin/expenses.html'),
         kasir:          resolve(__dirname, 'kasir/index.html'),
         tokoHome:       resolve(__dirname, 'toko/index.html'),
         tokoProducts:   resolve(__dirname, 'toko/products.html'),
