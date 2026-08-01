@@ -53,6 +53,27 @@ Alpine.data('settingsAdmin', () => ({
   deletingBank: null,
   deletingBankLoading: false,
 
+  // ── Shipping zones state ─────────────────────────────────────────────
+  shippingZones: [],
+  loadingZones: false,
+
+  // Form tambah zona
+  showZoneModal: false,
+  savingZone: false,
+  zoneForm: {
+    name: '',
+    description: '',
+    base_cost: 0,
+    free_shipping_min_order: 0,
+    is_active: true,
+    sort_order: 0,
+  },
+
+  // Hapus zona
+  showDeleteZoneModal: false,
+  deletingZone: null,
+  deletingZoneLoading: false,
+
   // QRIS image upload
   uploadingQris: false,
   deletingQris: false,
@@ -78,6 +99,7 @@ Alpine.data('settingsAdmin', () => ({
       await Promise.all([
         this.fetchSettings(),
         this.fetchBankAccounts(),
+        this.fetchShippingZones(),
       ])
     } catch (err) {
       console.error('Init error:', err)
@@ -432,12 +454,145 @@ Alpine.data('settingsAdmin', () => ({
   },
 
   showAlert(message, type = 'success') {
-    this.alert.message = message
-    this.alert.type = type
-    this.alert.show = true
+    this.alert = {
+      show: true,
+      type,
+      message
+    }
     setTimeout(() => {
       this.alert.show = false
-    }, 3000)
+    }, 4000)
+  },
+
+  // ── Shipping zones CRUD ────────────────────────────────────────────────
+  async fetchShippingZones() {
+    this.loadingZones = true
+    try {
+      const { data, error } = await supabase
+        .from('shipping_zones')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
+      this.shippingZones = (data || []).map(z => ({
+        ...z,
+        saving: false
+      }))
+    } catch (err) {
+      console.error('Fetch shipping zones error:', err)
+      this.showAlert('Gagal mengambil zona pengiriman: ' + err.message, 'error')
+    } finally {
+      this.loadingZones = false
+    }
+  },
+
+  openAddZoneModal() {
+    this.zoneForm = {
+      name: '',
+      description: '',
+      base_cost: 0,
+      free_shipping_min_order: 0,
+      is_active: true,
+      sort_order: (this.shippingZones.length + 1) * 10,
+    }
+    this.showZoneModal = true
+  },
+
+  closeZoneModal() {
+    this.showZoneModal = false
+  },
+
+  async addZone() {
+    if (!this.zoneForm.name.trim()) {
+      this.showAlert('Nama zona pengiriman wajib diisi.', 'error')
+      return
+    }
+
+    this.savingZone = true
+    try {
+      const payload = {
+        name: this.zoneForm.name.trim(),
+        description: this.zoneForm.description.trim() || null,
+        base_cost: Number(this.zoneForm.base_cost) || 0,
+        free_shipping_min_order: Number(this.zoneForm.free_shipping_min_order) || 0,
+        is_active: this.zoneForm.is_active !== false,
+        sort_order: Number(this.zoneForm.sort_order) || 0,
+      }
+
+      const { error } = await supabase
+        .from('shipping_zones')
+        .insert(payload)
+
+      if (error) throw error
+
+      this.showAlert('Zona pengiriman baru berhasil ditambahkan.', 'success')
+      this.closeZoneModal()
+      await this.fetchShippingZones()
+    } catch (err) {
+      this.showAlert('Gagal menambah zona pengiriman: ' + err.message, 'error')
+    } finally {
+      this.savingZone = false
+    }
+  },
+
+  async saveZone(zone) {
+    if (!zone.name || !zone.name.trim()) {
+      this.showAlert('Nama zona pengiriman tidak boleh kosong.', 'error')
+      return
+    }
+
+    zone.saving = true
+    try {
+      const payload = {
+        name: zone.name.trim(),
+        description: zone.description ? zone.description.trim() : null,
+        base_cost: Number(zone.base_cost) || 0,
+        free_shipping_min_order: Number(zone.free_shipping_min_order) || 0,
+        is_active: zone.is_active !== false,
+        sort_order: Number(zone.sort_order) || 0,
+      }
+
+      const { error } = await supabase
+        .from('shipping_zones')
+        .update(payload)
+        .eq('id', zone.id)
+
+      if (error) throw error
+
+      this.showAlert(`Zona "${zone.name}" berhasil diperbarui.`, 'success')
+    } catch (err) {
+      this.showAlert('Gagal memperbarui zona: ' + err.message, 'error')
+    } finally {
+      zone.saving = false
+    }
+  },
+
+  confirmDeleteZone(zone) {
+    this.deletingZone = zone
+    this.showDeleteZoneModal = true
+  },
+
+  async deleteZone() {
+    if (!this.deletingZone) return
+    this.deletingZoneLoading = true
+    try {
+      const { error } = await supabase
+        .from('shipping_zones')
+        .delete()
+        .eq('id', this.deletingZone.id)
+
+      if (error) throw error
+
+      this.showAlert(`Zona "${this.deletingZone.name}" berhasil dihapus.`, 'success')
+      this.showDeleteZoneModal = false
+      this.deletingZone = null
+      await this.fetchShippingZones()
+    } catch (err) {
+      this.showAlert('Gagal menghapus zona: ' + err.message, 'error')
+    } finally {
+      this.deletingZoneLoading = false
+    }
   },
 
   async logout() {

@@ -37,6 +37,14 @@ Alpine.data('kasirApp', () => ({
   // ── Cart ─────────────────────────────────────────────────────────────────
   cart: [],  // [{ cartKey, id, variant_id, color_name, color_hex, sku, name, unit, sell_price, qty, stock }]
 
+  // ── Discounts ─────────────────────────────────────────────────────────────
+  activeDiscounts:  [],       // semua diskon otomatis channel offline/all yang sedang aktif
+  appliedDiscount:  null,     // { id, name, type, value, max_discount_amount, applies_to, target_id, category_id }
+  appliedVoucher:   null,     // sama strukturnya, tapi dari kode voucher
+  voucherCode:      '',
+  voucherError:     '',
+  applyingVoucher:  false,
+
   // ── Payment modal ─────────────────────────────────────────────────────────
   showPayModal:  false,
   paying:        false,
@@ -89,8 +97,38 @@ Alpine.data('kasirApp', () => ({
     )
   },
 
-  get cartTotal() {
+  get cartSubtotal() {
     return this.cart.reduce((s, i) => s + i.sell_price * i.qty, 0)
+  },
+
+  get activeDiscountForCart() {
+    // Pilih diskon otomatis terbaik yang berlaku untuk cart saat ini
+    const subtotal = this.cartSubtotal
+    let best = null
+    let bestAmount = 0
+
+    for (const d of this.activeDiscounts) {
+      if (!this._discountAppliesTo(d)) continue
+      if (d.min_order_amount && subtotal < d.min_order_amount) continue
+      const amt = this._calcDiscountAmount(d, subtotal)
+      if (amt > bestAmount) { bestAmount = amt; best = d }
+    }
+    return best
+  },
+
+  get discountAmount() {
+    // Voucher menimpa diskon otomatis
+    const discount = this.appliedVoucher || this.activeDiscountForCart
+    if (!discount) return 0
+    return this._calcDiscountAmount(discount, this.cartSubtotal)
+  },
+
+  get effectiveDiscount() {
+    return this.appliedVoucher || this.activeDiscountForCart
+  },
+
+  get cartTotal() {
+    return Math.max(0, this.cartSubtotal - this.discountAmount)
   },
 
   get cartCount() {
@@ -109,7 +147,7 @@ Alpine.data('kasirApp', () => ({
   },
 
   get canConfirmPay() {
-    if (this.cartTotal <= 0) return false
+    if (this.cartTotal <= 0 && this.cartSubtotal <= 0) return false
     if (this.payMethod === 'cash') return Number(this.nominalBayar) >= this.cartTotal
     if (this.payMethod === 'transfer') {
       return this.selectedBankId != null && this.proofFile != null
@@ -158,6 +196,7 @@ Alpine.data('kasirApp', () => ({
       this.fetchProducts(),
       this.fetchTransactions(),
       this.fetchSettings(),
+      this.fetchActiveDiscounts(),
     ])
   },
 
@@ -343,6 +382,9 @@ Alpine.data('kasirApp', () => ({
   clearCart() {
     this.cart = []
     this.nominalBayar = ''
+    this.appliedVoucher = null
+    this.voucherCode = ''
+    this.voucherError = ''
   },
 
   // ── Payment modal ─────────────────────────────────────────────────────────
@@ -440,6 +482,41 @@ Alpine.data('kasirApp', () => ({
     this.paying = true
 
     try {
+      // 0. Server-side re-validate diskon sebelum transaksi
+      const discount = this.effectiveDiscount
+      let validatedDiscountAmount = 0
+      if (discount) {
+        // Re-fetch dari DB untuk pastikan diskon masih valid
+        const { data: freshDiscount } = await supabase
+          .from('discounts')
+          .select('*')
+          .eq('id', discount.id)
+          .maybeSingle()
+
+        if (freshDiscount && freshDiscount.is_active) {
+          const now = new Date()
+          const startOk = !freshDiscount.start_date || new Date(freshDiscount.start_date) <= now
+          const endOk   = !freshDiscount.end_date   || new Date(freshDiscount.end_date)   >= now
+          const limitOk = !freshDiscount.usage_limit || freshDiscount.usage_count < freshDiscount.usage_limit
+          const channelOk = freshDiscount.channel === 'all' || freshDiscount.channel === 'offline'
+          const minOk = !freshDiscount.min_order_amount || this.cartSubtotal >= freshDiscount.min_order_amount
+
+          if (startOk && endOk && limitOk && channelOk && minOk) {
+            validatedDiscountAmount = this._calcDiscountAmount(freshDiscount, this.cartSubtotal)
+          } else {
+            // Diskon tidak lagi valid, lanjut tanpa diskon
+            this.appliedVoucher = null
+            this.showAlert('warning', 'Diskon tidak lagi berlaku. Transaksi dilanjutkan tanpa diskon.')
+            validatedDiscountAmount = 0
+          }
+        } else {
+          this.appliedVoucher = null
+          validatedDiscountAmount = 0
+        }
+      }
+
+      const finalTotal = Math.max(0, this.cartSubtotal - validatedDiscountAmount)
+
       // 1. Ambil location_id aktif pertama
       const { data: locData, error: locErr } = await supabase
         .from('locations')
@@ -454,17 +531,23 @@ Alpine.data('kasirApp', () => ({
 
       const locationId = locData.id
 
-      // 2. Insert ke tabel sales
+      // 2. Insert ke tabel sales (dengan discount_id + discount_amount)
+      const salePayload = {
+        channel:         'offline',
+        location_id:     locationId,
+        staff_id:        this.staffId,
+        total_amount:    finalTotal,
+        payment_status:  'unpaid',
+        order_status:    'pending',
+      }
+      if (discount && validatedDiscountAmount > 0) {
+        salePayload.discount_id     = discount.id
+        salePayload.discount_amount = validatedDiscountAmount
+      }
+
       const { data: saleData, error: saleErr } = await supabase
         .from('sales')
-        .insert({
-          channel:        'offline',
-          location_id:    locationId,
-          staff_id:       this.staffId,
-          total_amount:   this.cartTotal,
-          payment_status: 'unpaid',
-          order_status:   'pending',
-        })
+        .insert(salePayload)
         .select('id')
         .single()
 
@@ -507,7 +590,7 @@ Alpine.data('kasirApp', () => ({
       const paymentRow = {
         sale_id:  saleId,
         method:   this.payMethod,
-        amount:   this.cartTotal,
+        amount:   finalTotal,
         status:   'success',
         paid_at:  new Date().toISOString(),
       }
@@ -533,19 +616,40 @@ Alpine.data('kasirApp', () => ({
 
       if (updateErr) throw updateErr
 
+      // 7b. Catat pemakaian diskon + increment usage_count
+      if (discount && validatedDiscountAmount > 0) {
+        await Promise.all([
+          supabase.from('discount_usages').insert({
+            discount_id:    discount.id,
+            sale_id:        saleId,
+            discount_amount: validatedDiscountAmount,
+          }),
+          supabase.rpc('increment_discount_usage', { discount_id_arg: discount.id })
+            .catch(() =>
+              // fallback jika RPC belum ada: update manual
+              supabase.from('discounts')
+                .update({ usage_count: (discount.usage_count || 0) + 1 })
+                .eq('id', discount.id)
+            ),
+        ])
+      }
+
       // 8. Simpan snapshot struk
       const now = new Date()
       this.receipt = {
-        saleId:    saleId,
-        tanggal:   now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }),
-        jam:       now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        items:     this.cart.map(i => ({ ...i })),
-        total:     this.cartTotal,
-        nominal:   this.payMethod === 'cash' ? Number(this.nominalBayar) : this.cartTotal,
-        kembalian: this.payMethod === 'cash' ? (Number(this.nominalBayar) - this.cartTotal) : 0,
-        kasir:     this.staffUser.name,
-        method:    this.payMethod,
-        isReprint: false,
+        saleId:          saleId,
+        tanggal:         now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }),
+        jam:             now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        items:           this.cart.map(i => ({ ...i })),
+        subtotal:        this.cartSubtotal,
+        discountAmount:  validatedDiscountAmount,
+        discountName:    discount?.name ?? null,
+        total:           finalTotal,
+        nominal:         this.payMethod === 'cash' ? Number(this.nominalBayar) : finalTotal,
+        kembalian:       this.payMethod === 'cash' ? (Number(this.nominalBayar) - finalTotal) : 0,
+        kasir:           this.staffUser.name,
+        method:          this.payMethod,
+        isReprint:       false,
       }
 
       // 9. Tutup modal, tampilkan struk, refresh data
@@ -556,6 +660,7 @@ Alpine.data('kasirApp', () => ({
       await Promise.all([
         this.fetchProducts(),
         this.fetchTransactions(),
+        this.fetchActiveDiscounts(),
       ])
 
     } catch (err) {
@@ -565,6 +670,92 @@ Alpine.data('kasirApp', () => ({
     }
   },
 
+  // ── Discount methods ──────────────────────────────────────────────────────
+
+  async fetchActiveDiscounts() {
+    try {
+      const now = new Date().toISOString()
+      const { data } = await supabase
+        .from('discounts')
+        .select('*')
+        .eq('is_active', true)
+        .eq('discount_type', 'auto')
+        .or('channel.eq.all,channel.eq.offline')
+        .or('start_date.is.null,start_date.lte.' + now)
+        .or('end_date.is.null,end_date.gte.' + now)
+      this.activeDiscounts = data || []
+    } catch (err) {
+      console.warn('fetchActiveDiscounts:', err.message)
+    }
+  },
+
+  async applyVoucher() {
+    const code = (this.voucherCode || '').trim().toUpperCase()
+    if (!code) { this.voucherError = 'Masukkan kode voucher terlebih dahulu.'; return }
+
+    this.applyingVoucher = true
+    this.voucherError = ''
+    this.appliedVoucher = null
+
+    try {
+      const { data, error } = await supabase
+        .from('discounts')
+        .select('*')
+        .eq('code', code)
+        .eq('discount_type', 'voucher')
+        .maybeSingle()
+
+      if (error) throw error
+      if (!data) { this.voucherError = 'Kode voucher tidak ditemukan.'; return }
+
+      // Validasi
+      const now = new Date()
+      if (!data.is_active) { this.voucherError = 'Voucher ini sudah tidak aktif.'; return }
+      if (data.channel !== 'all' && data.channel !== 'offline') { this.voucherError = 'Voucher ini hanya berlaku untuk pembelian online.'; return }
+      if (data.start_date && new Date(data.start_date) > now) { this.voucherError = 'Voucher belum berlaku.'; return }
+      if (data.end_date   && new Date(data.end_date)   < now) { this.voucherError = 'Voucher sudah kadaluarsa.'; return }
+      if (data.usage_limit && data.usage_count >= data.usage_limit) { this.voucherError = 'Kuota voucher sudah habis.'; return }
+      if (data.min_order_amount && this.cartSubtotal < data.min_order_amount) {
+        this.voucherError = 'Min. pembelian ' + this.formatPrice(data.min_order_amount) + ' untuk menggunakan voucher ini.'; return
+      }
+
+      this.appliedVoucher = data
+      this.showAlert('success', 'Voucher "' + code + '" berhasil diterapkan!')
+    } catch (err) {
+      this.voucherError = 'Gagal memvalidasi voucher: ' + err.message
+    } finally {
+      this.applyingVoucher = false
+    }
+  },
+
+  removeVoucher() {
+    this.appliedVoucher = null
+    this.voucherCode = ''
+    this.voucherError = ''
+  },
+
+  _discountAppliesTo(discount) {
+    if (discount.applies_to === 'all') return true
+    if (discount.applies_to === 'category') {
+      return this.cart.some(i => i.category_id === discount.target_id)
+    }
+    if (discount.applies_to === 'product') {
+      return this.cart.some(i => i.id === discount.target_id)
+    }
+    return false
+  },
+
+  _calcDiscountAmount(discount, subtotal) {
+    let amt = 0
+    if (discount.type === 'percentage') {
+      amt = subtotal * discount.value / 100
+      if (discount.max_discount_amount) amt = Math.min(amt, discount.max_discount_amount)
+    } else {
+      amt = discount.value
+    }
+    return Math.min(amt, subtotal)
+  },
+
   // ── Receipt ───────────────────────────────────────────────────────────────
   closeReceipt() {
     this.showReceiptModal = false
@@ -572,8 +763,8 @@ Alpine.data('kasirApp', () => ({
 
     const wasReprint = this.receipt.isReprint
     this.receipt = {
-      saleId: '', tanggal: '', jam: '', items: [], total: 0,
-      nominal: 0, kembalian: 0, kasir: '', method: 'cash', isReprint: false
+      saleId: '', tanggal: '', jam: '', items: [], subtotal: 0, discountAmount: 0,
+      discountName: null, total: 0, nominal: 0, kembalian: 0, kasir: '', method: 'cash', isReprint: false
     }
 
     if (!wasReprint) {

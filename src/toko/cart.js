@@ -13,7 +13,10 @@ import {
   cartSubtotal,
   cartCountFrom,
   productUrl,
+  injectComponents,
 } from './store-common.js'
+
+injectComponents()
 
 window.Alpine = Alpine
 

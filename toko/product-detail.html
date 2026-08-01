@@ -163,7 +163,31 @@
 
         <!-- 4. Harga + Wishlist Heart -->
         <div class="flex items-center justify-between gap-4 mb-6 pb-6 border-b border-border">
-          <p class="text-2xl sm:text-3xl font-semibold text-ink" x-text="formatPrice(product?.sell_price)"></p>
+          <!-- Harga dengan dual pricing diskon -->
+          <div class="flex-1 min-w-0">
+            <!-- Ada diskon otomatis -->
+            <template x-if="productDiscount && discountedPrice !== null">
+              <div>
+                <!-- Badge diskon + nama diskon -->
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-sage/15 text-sage-deep border border-sage/30"
+                    x-text="'-' + discountPercent + '%'"></span>
+                  <span class="text-xs text-stone" x-text="productDiscount?.name"></span>
+                </div>
+                <!-- Harga coret -->
+                <p class="text-sm text-stone line-through" x-text="formatPrice(product?.sell_price)"></p>
+                <!-- Harga diskon (besar) -->
+                <p class="text-2xl sm:text-3xl font-semibold text-sage-deep" x-text="formatPrice(discountedPrice)"></p>
+                <p class="text-xs text-sage-deep/80 mt-0.5" x-text="'Hemat ' + formatPrice(discountSaving)"></p>
+              </div>
+            </template>
+            <!-- Harga normal (tanpa diskon) -->
+            <template x-if="!productDiscount || discountedPrice === null">
+              <p class="text-2xl sm:text-3xl font-semibold text-ink" x-text="formatPrice(product?.sell_price)"></p>
+            </template>
+          </div>
+
+          <!-- Wishlist heart -->
           <button
             @click="toggleWishlist()"
             class="w-11 h-11 rounded-full border border-border bg-white text-stone hover:text-red-500 hover:border-red-200 hover:bg-red-50 flex items-center justify-center transition-all shadow-sm flex-shrink-0"
@@ -344,7 +368,7 @@
                         <template x-for="z in shippingZones" :key="z.id">
                           <tr>
                             <td class="py-2 text-stone font-medium" x-text="z.name"></td>
-                            <td class="py-2 text-right font-semibold text-ink" x-text="formatPrice(z.cost)"></td>
+                            <td class="py-2 text-right font-semibold text-ink" x-text="formatPrice(z.base_cost ?? z.cost)"></td>
                           </tr>
                         </template>
                       </tbody>

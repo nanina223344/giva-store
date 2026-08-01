@@ -12,6 +12,9 @@ import {
   mapProductRow,
   PRODUCT_SELECT,
   injectComponents,
+  fetchActiveOnlineDiscounts,
+  computeDiscountForProduct,
+  computeDiscountAmount,
 } from './store-common.js'
 
 injectComponents()
@@ -91,6 +94,9 @@ Alpine.data('storeProducts', () => ({
   // Wishlist (product_ids)
   myWishlists: [],
 
+  // Discounts
+  activeDiscounts: [],
+
   // ── Init ──────────────────────────────────────────────────────────────
 
   async init() {
@@ -102,6 +108,7 @@ Alpine.data('storeProducts', () => ({
     await Promise.all([
       this.loadFilterMetadata(),
       this.loadWishlists(),
+      fetchActiveOnlineDiscounts().then(d => { this.activeDiscounts = d.filter(x => x.discount_type === 'auto') }),
     ])
 
     // Resolve async title for collection/category (needs DB fetch)
@@ -423,6 +430,31 @@ Alpine.data('storeProducts', () => ({
       if (this.filters.stock === 'out')       return p.total_stock === 0
       return true
     })
+  },
+
+  // ── Discount helpers for product cards ──────────────────────────────────────────
+
+  getProductDiscount(product) {
+    if (!product || !this.activeDiscounts.length) return null
+    return computeDiscountForProduct(
+      { id: product.id, category_id: product.category_id, sell_price: product.sell_price },
+      this.activeDiscounts
+    )
+  },
+
+  getDiscountedPrice(product) {
+    const d = this.getProductDiscount(product)
+    if (!d) return null
+    const amt = computeDiscountAmount(d, product.sell_price)
+    return Math.max(0, product.sell_price - amt)
+  },
+
+  getDiscountPercent(product) {
+    const d = this.getProductDiscount(product)
+    if (!d) return 0
+    if (d.type === 'percentage') return Math.round(d.value)
+    const saving = computeDiscountAmount(d, product.sell_price)
+    return Math.round(saving / product.sell_price * 100)
   },
 
 }))

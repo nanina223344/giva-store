@@ -98,6 +98,77 @@ export function cartSubtotal(items) {
   )
 }
 
+/**
+ * Fetch semua diskon aktif yang berlaku untuk channel online/all.
+ * Filter validitas periode dan usage limit dilakukan di client.
+ */
+export async function fetchActiveOnlineDiscounts() {
+  try {
+    const now = new Date().toISOString()
+    const { data } = await supabase
+      .from('discounts')
+      .select('*')
+      .eq('is_active', true)
+      .or('channel.eq.all,channel.eq.online')
+      .or('start_date.is.null,start_date.lte.' + now)
+      .or('end_date.is.null,end_date.gte.' + now)
+
+    const result = []
+    for (const d of (data || [])) {
+      if (d.usage_limit && d.usage_count >= d.usage_limit) continue
+      result.push(d)
+    }
+    return result
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Cari diskon terbaik yang berlaku untuk produk tertentu.
+ * @param {object} product - { id, category_id, sell_price }
+ * @param {Array} discounts - hasil fetchActiveOnlineDiscounts()
+ * @returns {object|null} diskon terbaik atau null
+ */
+export function computeDiscountForProduct(product, discounts) {
+  if (!product || !discounts || discounts.length === 0) return null
+
+  let best = null
+  let bestAmount = 0
+
+  for (const d of discounts) {
+    // Cek apakah diskon berlaku untuk produk ini
+    if (d.applies_to === 'product' && d.target_id !== product.id) continue
+    if (d.applies_to === 'category' && d.target_id !== product.category_id) continue
+
+    // Min order tidak relevan untuk per-produk — skip jika ada min order
+    if (d.min_order_amount && d.min_order_amount > 0) continue
+
+    const amt = computeDiscountAmount(d, product.sell_price)
+    if (amt > bestAmount) { bestAmount = amt; best = d }
+  }
+
+  return best
+}
+
+/**
+ * Hitung nilai diskon berdasarkan objek diskon dan subtotal.
+ * @param {object} discount
+ * @param {number} subtotal
+ * @returns {number} nilai diskon (tidak lebih dari subtotal)
+ */
+export function computeDiscountAmount(discount, subtotal) {
+  if (!discount || !subtotal) return 0
+  let amt = 0
+  if (discount.type === 'percentage') {
+    amt = subtotal * discount.value / 100
+    if (discount.max_discount_amount) amt = Math.min(amt, discount.max_discount_amount)
+  } else {
+    amt = discount.value
+  }
+  return Math.min(amt, subtotal)
+}
+
 export function loadCustomer() {
   try {
     const raw = localStorage.getItem(CUSTOMER_KEY)
@@ -218,22 +289,30 @@ export async function syncCustomerSession() {
     return { session: null, customer: null }
   }
 
-  const row = await fetchCustomerByAuth(session.user.id)
-  const customer = {
-    id: row?.id ?? null,
-    name:
-      row?.name ||
-      session.user.user_metadata?.name ||
-      session.user.user_metadata?.full_name ||
-      session.user.email?.split('@')[0] ||
-      'Customer',
-    email: row?.email || session.user.email || '',
-    phone: row?.phone || '',
-    address: row?.address || '',
-    auth_user_id: session.user.id,
+  const { data: customerData } = await supabase
+    .from('customers')
+    .select('id, auth_user_id, name, phone, email, address')
+    .eq('auth_user_id', session.user.id)
+    .maybeSingle()
+
+  if (customerData) {
+    const customer = {
+      id: customerData.id,
+      name: customerData.name || 'Customer',
+      email: customerData.email || session.user.email || '',
+      phone: customerData.phone || '',
+      address: customerData.address || '',
+      auth_user_id: session.user.id,
+    }
+    saveCustomerCache(customer)
+    return { session, customer }
+  } else {
+    // TIDAK ada di tabel customers = ini staff/admin
+    // tampilkan tombol "Masuk" saja, JANGAN tampilkan nama apapun
+    // JANGAN query tabel staff sama sekali di storefront
+    logoutCustomer()
+    return { session, customer: null }
   }
-  saveCustomerCache(customer)
-  return { session, customer }
 }
 
 /**
@@ -317,14 +396,10 @@ export function storeShellFields() {
       // Check announcement bar session dismiss
       try { this.announcementDismissed = sessionStorage.getItem('giva_announcement_dismissed') === '1' } catch {}
       this.refreshCartCount()
-      this.customer = loadCustomer()
-      
-      // Async sync auth state
-      syncCustomerSession().then(({ customer }) => {
-        this.customer = customer
-      }).catch(() => {
-        this.customer = null
-      })
+
+      // Don't load stale customer from cache — wait for live auth check
+      // (avoids flashing staff name "Abdan" from old cache)
+      this.customer = null
       
       const onCart = () => this.refreshCartCount()
       window.addEventListener('storage', (e) => {
@@ -340,12 +415,12 @@ export function storeShellFields() {
         this.settings = s
       })
 
-      // Prefer live Supabase session over stale cache
+      // Live auth check — only source of truth for customer identity
       try {
         const { customer } = await syncCustomerSession()
         this.customer = customer
       } catch {
-        /* ignore */
+        this.customer = null
       }
 
       // Load active collections for navbar

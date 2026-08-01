@@ -14,6 +14,8 @@ import {
   clearCart,
   fetchStoreSettings,
   syncCustomerSession,
+  fetchActiveOnlineDiscounts,
+  computeDiscountAmount,
 } from './store-common.js'
 
 window.Alpine = Alpine
@@ -68,6 +70,14 @@ Alpine.data('storeCheckout', () => ({
     available: 0,
   },
 
+  // Voucher / Discount
+  activeDiscounts: [],
+  appliedVoucher: null,
+  voucherCode: '',
+  voucherError: '',
+  applyingVoucher: false,
+  autoDiscount: null,
+
   // Submission State
   submitting: false,
   submitError: '',
@@ -111,6 +121,19 @@ Alpine.data('storeCheckout', () => ({
       this.fetchShippingZones(),
       this.fetchBankAccounts(),
       this.fetchAddresses(),
+      fetchActiveOnlineDiscounts().then(discounts => {
+        this.activeDiscounts = discounts
+        // Cari diskon otomatis terbaik untuk semua produk
+        let best = null
+        let bestAmt = 0
+        for (const d of discounts.filter(d => d.discount_type === 'auto')) {
+          if (d.applies_to === 'all' && (!d.min_order_amount || this.cartSubtotal >= d.min_order_amount)) {
+            const amt = computeDiscountAmount(d, this.cartSubtotal)
+            if (amt > bestAmt) { bestAmt = amt; best = d }
+          }
+        }
+        this.autoDiscount = best
+      }),
     ])
 
     // Auto-select default address
@@ -133,7 +156,7 @@ Alpine.data('storeCheckout', () => ({
         .from('customer_addresses')
         .select(`
           *,
-          shipping_zones ( id, name, cost, free_shipping_min_order )
+          shipping_zones ( id, name, base_cost, cost, free_shipping_min_order )
         `)
         .eq('customer_id', this.customer.id)
         .order('is_default', { ascending: false })
@@ -153,7 +176,8 @@ Alpine.data('storeCheckout', () => ({
       const { data } = await supabase
         .from('shipping_zones')
         .select('*')
-        .order('cost', { ascending: true })
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
       if (data) this.shippingZonesList = data
     } catch (err) {
       console.error('Fetch shipping zones error:', err)
@@ -185,7 +209,7 @@ Alpine.data('storeCheckout', () => ({
 
     const zone = addr.shipping_zones
     this.selectedZone = zone
-    this.shippingCost = Number(zone.cost || 0)
+    this.shippingCost = Number(zone.base_cost ?? zone.cost ?? 0)
 
     if (zone.free_shipping_min_order && this.cartSubtotal >= Number(zone.free_shipping_min_order)) {
       this.isFreeShipping = true
@@ -194,9 +218,63 @@ Alpine.data('storeCheckout', () => ({
     }
   },
 
+  get discountAmount() {
+    const discount = this.appliedVoucher || this.autoDiscount
+    if (!discount) return 0
+    return computeDiscountAmount(discount, this.cartSubtotal)
+  },
+
+  get effectiveDiscount() {
+    return this.appliedVoucher || this.autoDiscount
+  },
+
   get totalAmount() {
     const finalShipping = this.isFreeShipping ? 0 : this.shippingCost
-    return this.cartSubtotal + finalShipping
+    return Math.max(0, this.cartSubtotal - this.discountAmount) + finalShipping
+  },
+
+  async applyVoucher() {
+    const code = (this.voucherCode || '').trim().toUpperCase()
+    if (!code) { this.voucherError = 'Masukkan kode voucher terlebih dahulu.'; return }
+
+    this.applyingVoucher = true
+    this.voucherError = ''
+    this.appliedVoucher = null
+
+    try {
+      const { data, error } = await supabase
+        .from('discounts')
+        .select('*')
+        .eq('code', code)
+        .eq('discount_type', 'voucher')
+        .maybeSingle()
+
+      if (error) throw error
+      if (!data) { this.voucherError = 'Kode voucher tidak ditemukan.'; return }
+
+      const now = new Date()
+      if (!data.is_active) { this.voucherError = 'Voucher ini sudah tidak aktif.'; return }
+      if (data.channel !== 'all' && data.channel !== 'online') { this.voucherError = 'Voucher ini hanya berlaku untuk pembelian di kasir.'; return }
+      if (data.start_date && new Date(data.start_date) > now) { this.voucherError = 'Voucher belum berlaku.'; return }
+      if (data.end_date   && new Date(data.end_date)   < now) { this.voucherError = 'Voucher sudah kadaluarsa.'; return }
+      if (data.usage_limit && data.usage_count >= data.usage_limit) { this.voucherError = 'Kuota voucher sudah habis.'; return }
+      if (data.min_order_amount && this.cartSubtotal < data.min_order_amount) {
+        this.voucherError = 'Min. pembelian ' + formatPrice(data.min_order_amount) + ' untuk menggunakan voucher ini.'; return
+      }
+
+      this.appliedVoucher = data
+      this.voucherError = ''
+    } catch (err) {
+      this.voucherError = 'Gagal memvalidasi voucher: ' + err.message
+    } finally {
+      this.applyingVoucher = false
+    }
+  },
+
+  removeVoucher() {
+    this.appliedVoucher = null
+    this.voucherCode = ''
+    this.voucherError = ''
   },
 
   async saveNewAddress() {
@@ -362,7 +440,6 @@ Alpine.data('storeCheckout', () => ({
 
   async executeOrderTransaction() {
     const selectedAddr = this.addresses.find((a) => a.id === this.selectedAddressId)
-    const finalShippingCost = this.isFreeShipping ? 0 : this.shippingCost
 
     // Determine payment method and detail
     let method = this.selectedPaymentType
@@ -388,25 +465,79 @@ Alpine.data('storeCheckout', () => ({
       paymentDetail = `DANA (${this.settings.payment_dana})`
     }
 
+    // Step 0: Server-side re-validate discount
+    let validatedDiscountAmount = 0
+    let validatedDiscount = null
+    const discount = this.effectiveDiscount
+    if (discount) {
+      const { data: freshDiscount } = await supabase
+        .from('discounts')
+        .select('*')
+        .eq('id', discount.id)
+        .maybeSingle()
+
+      if (freshDiscount && freshDiscount.is_active) {
+        const now = new Date()
+        const startOk = !freshDiscount.start_date || new Date(freshDiscount.start_date) <= now
+        const endOk   = !freshDiscount.end_date   || new Date(freshDiscount.end_date)   >= now
+        const limitOk = !freshDiscount.usage_limit || freshDiscount.usage_count < freshDiscount.usage_limit
+        const channelOk = freshDiscount.channel === 'all' || freshDiscount.channel === 'online'
+        const minOk = !freshDiscount.min_order_amount || this.cartSubtotal >= freshDiscount.min_order_amount
+
+        if (startOk && endOk && limitOk && channelOk && minOk) {
+          validatedDiscountAmount = computeDiscountAmount(freshDiscount, this.cartSubtotal)
+          validatedDiscount = freshDiscount
+        } else {
+          this.appliedVoucher = null
+          this.autoDiscount = null
+        }
+      }
+    }
+
+    const finalShippingCost = this.isFreeShipping ? 0 : this.shippingCost
+    const finalTotal = Math.max(0, this.cartSubtotal - validatedDiscountAmount) + finalShippingCost
+
     // Step 1: Insert Sales
+    const salePayload = {
+      channel: 'online',
+      customer_id: this.customer.id,
+      location_id: null,
+      staff_id: null,
+      subtotal: this.cartSubtotal,
+      discount_amount: validatedDiscountAmount,
+      total_amount: finalTotal,
+      payment_status: 'unpaid',
+      order_status: 'pending',
+    }
+    if (validatedDiscount && validatedDiscountAmount > 0) {
+      salePayload.discount_id = validatedDiscount.id
+    }
+
     const { data: sale, error: saleErr } = await supabase
       .from('sales')
-      .insert({
-        channel: 'online',
-        customer_id: this.customer.id,
-        location_id: null,
-        staff_id: null,
-        subtotal: this.cartSubtotal,
-        discount_amount: 0,
-        total_amount: this.totalAmount,
-        payment_status: 'unpaid',
-        order_status: 'pending',
-      })
+      .insert(salePayload)
       .select()
       .single()
 
     if (saleErr) throw saleErr
     const saleId = sale.id
+
+    // Step 1b: Record discount usage
+    if (validatedDiscount && validatedDiscountAmount > 0) {
+      await Promise.all([
+        supabase.from('discount_usages').insert({
+          discount_id:     validatedDiscount.id,
+          sale_id:         saleId,
+          discount_amount: validatedDiscountAmount,
+        }),
+        supabase.rpc('increment_discount_usage', { discount_id_arg: validatedDiscount.id })
+          .catch(() =>
+            supabase.from('discounts')
+              .update({ usage_count: (validatedDiscount.usage_count || 0) + 1 })
+              .eq('id', validatedDiscount.id)
+          ),
+      ])
+    }
 
     // Step 2: Insert Sale Items
     const saleItemsPayload = this.cartItems.map((i) => ({

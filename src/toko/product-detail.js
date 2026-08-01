@@ -14,6 +14,9 @@ import {
   loadCart,
   saveCart,
   injectComponents,
+  fetchActiveOnlineDiscounts,
+  computeDiscountForProduct,
+  computeDiscountAmount,
 } from './store-common.js'
 
 Alpine.plugin(collapse)
@@ -39,6 +42,10 @@ Alpine.data('storeProductDetail', () => ({
   shippingZones: [],
   sameCollectionProducts: [],
   recommendedProducts: [],
+
+  // Discounts
+  activeDiscounts: [],
+  productDiscount: null,   // diskon terbaik yang berlaku untuk produk ini
 
   // Toast notification
   toast: {
@@ -86,6 +93,7 @@ Alpine.data('storeProductDetail', () => ({
         this.checkWishlist(),
         this.fetchShippingZones(),
         this.fetchRelatedSections(),
+        this.loadDiscounts(),
       ])
     }
 
@@ -131,6 +139,34 @@ Alpine.data('storeProductDetail', () => ({
     } catch (err) {
       console.error('Gagal memuat detail produk:', err)
     }
+  },
+
+  async loadDiscounts() {
+    this.activeDiscounts = await fetchActiveOnlineDiscounts()
+    if (this.product) {
+      this.productDiscount = computeDiscountForProduct(
+        { id: this.product.id, category_id: this.product.category_id, sell_price: this.product.sell_price },
+        this.activeDiscounts.filter(d => d.discount_type === 'auto')
+      )
+    }
+  },
+
+  get discountedPrice() {
+    if (!this.product || !this.productDiscount) return null
+    const amt = computeDiscountAmount(this.productDiscount, this.product.sell_price)
+    return Math.max(0, this.product.sell_price - amt)
+  },
+
+  get discountSaving() {
+    if (!this.product || !this.productDiscount) return 0
+    return computeDiscountAmount(this.productDiscount, this.product.sell_price)
+  },
+
+  get discountPercent() {
+    if (!this.product || !this.productDiscount) return 0
+    if (this.productDiscount.type === 'percentage') return Math.round(this.productDiscount.value)
+    if (!this.product.sell_price) return 0
+    return Math.round(this.discountSaving / this.product.sell_price * 100)
   },
 
   async checkWishlist() {
@@ -184,7 +220,8 @@ Alpine.data('storeProductDetail', () => ({
       const { data } = await supabase
         .from('shipping_zones')
         .select('*')
-        .order('cost', { ascending: true })
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
       if (data) this.shippingZones = data
     } catch (e) {
       console.warn('Gagal memuat info pengiriman:', e)

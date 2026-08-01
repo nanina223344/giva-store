@@ -373,6 +373,10 @@
 
                 <!-- Badges -->
                 <div class="absolute top-2.5 left-2.5 flex flex-col gap-1.5 items-start pointer-events-none z-10">
+                  <template x-if="getProductDiscount(prod)">
+                    <span class="inline-flex px-2 py-0.5 rounded-md bg-sage text-white text-[10px] font-bold uppercase tracking-wider shadow-sm"
+                          x-text="'-' + getDiscountPercent(prod) + '%'"></span>
+                  </template>
                   <template x-if="prod.total_stock === 0">
                     <span class="inline-flex px-2 py-0.5 rounded-md bg-stone/75 backdrop-blur-sm text-white text-[10px] font-bold uppercase tracking-wider">Habis</span>
                   </template>
@@ -393,7 +397,19 @@
                 <h3 class="text-sm sm:text-base font-medium text-ink leading-snug line-clamp-2 group-hover:text-sage-deep transition-colors"
                     x-text="prod.name">
                 </h3>
-                <p class="mt-1.5 text-sm sm:text-[15px] font-semibold text-ink" x-text="formatPrice(prod.sell_price)"></p>
+
+                <!-- Price with Discount -->
+                <div class="mt-1.5">
+                  <template x-if="getProductDiscount(prod)">
+                    <div class="flex items-baseline gap-1.5 flex-wrap">
+                      <span class="text-sm sm:text-[15px] font-semibold text-sage-deep" x-text="formatPrice(getDiscountedPrice(prod))"></span>
+                      <span class="text-xs text-stone line-through" x-text="formatPrice(prod.sell_price)"></span>
+                    </div>
+                  </template>
+                  <template x-if="!getProductDiscount(prod)">
+                    <p class="text-sm sm:text-[15px] font-semibold text-ink" x-text="formatPrice(prod.sell_price)"></p>
+                  </template>
+                </div>
 
                 <!-- Color swatches -->
                 <div x-show="prod.colors?.length > 0" class="mt-2.5 flex items-center gap-1.5">
