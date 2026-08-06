@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Riwayat Koreksi Stok — Admin Giva Store</title>
+  <meta name="description" content="Log semua koreksi stok yang pernah dilakukan, dengan filter tanggal dan staff." />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body class="bg-cream text-ink min-h-screen font-sans antialiased" x-data="stockHistoryAdmin" x-init="init()">
+
+<div class="flex min-h-screen">
+
+  <div id="admin-sidebar"></div>
+
+  <!-- ── Main ─────────────────────────────────────────────────────────────── -->
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <!-- Top bar -->
+    <header class="bg-cream/80 backdrop-blur border-b border-border px-4 sm:px-8 py-4 flex items-center justify-between gap-4 sticky top-0 z-20">
+      <div class="flex items-center gap-3 min-w-0">
+        <button id="btn-hamburger" onclick="openSidebar()"
+          class="lg:hidden w-11 h-11 -ml-1 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all flex-shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <div class="min-w-0">
+          <h1 class="text-lg sm:text-2xl font-display font-semibold text-ink truncate">Riwayat Koreksi Stok</h1>
+          <p class="text-xs text-stone mt-0.5 hidden sm:block">Log semua penyesuaian stok manual</p>
+        </div>
+      </div>
+      <!-- Date range + export -->
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <div class="hidden sm:flex items-center gap-2 bg-white border border-border rounded-lg px-3 py-2">
+          <input type="date" id="input-date-from" x-model="dateFrom"
+            class="text-sm text-ink bg-transparent focus:outline-none" />
+          <span class="text-stone text-xs">—</span>
+          <input type="date" id="input-date-to" x-model="dateTo"
+            class="text-sm text-ink bg-transparent focus:outline-none" />
+        </div>
+        <button @click="exportCSV()"
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-sage hover:bg-sage-deep text-white text-sm font-medium transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          <span class="hidden sm:inline">Export CSV</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Date range mobile -->
+    <div class="sm:hidden px-4 py-3 border-b border-border bg-white flex items-center gap-2">
+      <input type="date" id="input-date-from-mob" x-model="dateFrom"
+        class="flex-1 text-sm text-ink border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sage/30" />
+      <span class="text-stone text-xs">s/d</span>
+      <input type="date" id="input-date-to-mob" x-model="dateTo"
+        class="flex-1 text-sm text-ink border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sage/30" />
+    </div>
+
+    <!-- Alert -->
+    <div x-show="alert.show"
+      x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2"
+      x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150"
+      x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+      class="mx-4 sm:mx-8 mt-4 rounded-xl px-4 py-3 text-sm font-medium flex items-center gap-2 border"
+      :class="alert.type === 'success' ? 'bg-sage/10 text-sage-deep border-sage/25' : 'bg-red-50 text-red-700 border-red-200'"
+      style="display:none;">
+      <span x-text="alert.message"></span>
+    </div>
+
+    <!-- ── Content ───────────────────────────────────────────────────────── -->
+    <main class="flex-1 px-4 sm:px-8 py-6 space-y-5">
+
+      <!-- ── Summary Cards ────────────────────────────────────────────────── -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white border border-border rounded-xl px-5 py-4">
+          <p class="text-xs font-semibold uppercase tracking-widest text-stone mb-1">Total Koreksi</p>
+          <p class="text-2xl font-bold text-ink" x-text="loading ? '—' : totalCount"></p>
+          <p class="text-xs text-stone mt-1">dalam periode ini</p>
+        </div>
+        <div class="bg-white border border-border rounded-xl px-5 py-4">
+          <p class="text-xs font-semibold uppercase tracking-widest text-stone mb-1">Total Stok Ditambah</p>
+          <p class="text-2xl font-bold text-sage-deep" x-text="loading ? '—' : '+' + totalAdded"></p>
+          <p class="text-xs text-stone mt-1">unit ditambah</p>
+        </div>
+        <div class="bg-white border border-border rounded-xl px-5 py-4">
+          <p class="text-xs font-semibold uppercase tracking-widest text-stone mb-1">Total Stok Dikurangi</p>
+          <p class="text-2xl font-bold text-red-500" x-text="loading ? '—' : '-' + totalRemoved"></p>
+          <p class="text-xs text-stone mt-1">unit dikurangi</p>
+        </div>
+      </div>
+
+      <!-- ── Filters ──────────────────────────────────────────────────────── -->
+      <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
+        <!-- Search -->
+        <div class="relative flex-1 min-w-[200px]">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone/50 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/>
+          </svg>
+          <input id="input-search-history" type="text" x-model="searchQuery" placeholder="Cari nama produk atau SKU…"
+            class="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-white text-sm text-ink placeholder-stone/50 focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition" />
+        </div>
+        <!-- Filter Staff -->
+        <select id="select-filter-staff" x-model="filterStaff"
+          class="px-3 py-2.5 rounded-lg border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition"
+          :class="filterStaff ? 'text-ink border-sage/50 bg-sage/5' : 'text-stone'">
+          <option value="">Semua Staff</option>
+          <template x-for="s in staffList" :key="s.id">
+            <option :value="String(s.id)" x-text="s.name"></option>
+          </template>
+        </select>
+        <!-- Filter Kategori Alasan -->
+        <select id="select-filter-kategori-history" x-model="filterCategory"
+          class="px-3 py-2.5 rounded-lg border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition"
+          :class="filterCategory ? 'text-ink border-sage/50 bg-sage/5' : 'text-stone'">
+          <option value="">Semua Kategori</option>
+          <option value="Stock Opname">Stock Opname</option>
+          <option value="Produk Rusak/Cacat">Produk Rusak / Cacat</option>
+          <option value="Produk Hilang">Produk Hilang</option>
+          <option value="Kesalahan Input">Kesalahan Input</option>
+          <option value="Retur dari Customer">Retur dari Customer</option>
+          <option value="Penyesuaian Lainnya">Penyesuaian Lainnya</option>
+        </select>
+        <!-- Filter Tipe -->
+        <select id="select-filter-tipe" x-model="filterType"
+          class="px-3 py-2.5 rounded-lg border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition"
+          :class="filterType !== 'all' ? 'text-ink border-sage/50 bg-sage/5' : 'text-stone'">
+          <option value="all">Semua Tipe</option>
+          <option value="increase">Stok Bertambah</option>
+          <option value="decrease">Stok Berkurang</option>
+        </select>
+      </div>
+
+      <!-- ── Loading ──────────────────────────────────────────────────────── -->
+      <div x-show="loading" class="flex items-center justify-center py-24">
+        <div class="flex flex-col items-center gap-3 text-stone">
+          <svg class="w-6 h-6 animate-spin text-sage" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          <p class="text-sm">Memuat riwayat koreksi…</p>
+        </div>
+      </div>
+
+      <!-- ── Empty state ──────────────────────────────────────────────────── -->
+      <div x-show="!loading && paginatedRows.length === 0" class="flex flex-col items-center justify-center py-24 gap-3 text-stone">
+        <svg class="w-10 h-10 text-stone/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        <p class="text-sm font-medium">Tidak ada riwayat koreksi</p>
+        <p class="text-xs text-stone/60">Coba ubah filter atau rentang tanggal</p>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════
+           DESKTOP TABLE (md+)
+      ══════════════════════════════════════════════════ -->
+      <div x-show="!loading && paginatedRows.length > 0"
+        class="hidden md:block rounded-xl border border-border overflow-hidden bg-white">
+
+        <!-- Header -->
+        <div class="bg-sand px-5 py-3 grid grid-cols-12 gap-2 text-[11px] font-semibold uppercase tracking-widest text-stone border-b border-border">
+          <div class="col-span-2">Tanggal &amp; Jam</div>
+          <div class="col-span-2">Produk</div>
+          <div class="col-span-1">Warna</div>
+          <div class="col-span-1">Lokasi</div>
+          <div class="col-span-1 text-right">Sebelum</div>
+          <div class="col-span-1 text-right">Sesudah</div>
+          <div class="col-span-1 text-right">Selisih</div>
+          <div class="col-span-1">Kategori</div>
+          <div class="col-span-1">Alasan</div>
+          <div class="col-span-1">Staff</div>
+        </div>
+
+        <!-- Rows -->
+        <div class="divide-y divide-border">
+          <template x-for="row in paginatedRows" :key="row.id">
+            <div class="px-5 py-3 grid grid-cols-12 gap-2 items-start hover:bg-cream/40 transition-colors">
+
+              <!-- Tanggal -->
+              <div class="col-span-2">
+                <p class="text-xs font-medium text-ink" x-text="formatDateShort(row.created_at)"></p>
+                <p class="text-[10px] text-stone" x-text="formatTime(row.created_at)"></p>
+              </div>
+
+              <!-- Produk -->
+              <div class="col-span-2 min-w-0">
+                <p class="text-xs font-medium text-ink truncate" x-text="row.product_name"></p>
+                <span class="text-[10px] font-mono text-stone bg-sand border border-border rounded px-1" x-text="row.sku || '—'"></span>
+              </div>
+
+              <!-- Warna -->
+              <div class="col-span-1">
+                <template x-if="row.color_name">
+                  <div class="flex items-center gap-1.5">
+                    <div class="w-3.5 h-3.5 rounded-full ring-1 ring-black/10 flex-shrink-0"
+                      :style="'background-color: ' + (row.color_hex || '#e5e7eb')"></div>
+                    <span class="text-xs text-ink" x-text="row.color_name"></span>
+                  </div>
+                </template>
+                <template x-if="!row.color_name">
+                  <span class="text-xs text-stone">—</span>
+                </template>
+              </div>
+
+              <!-- Lokasi -->
+              <div class="col-span-1">
+                <span class="text-xs text-stone" x-text="row.location_name || '—'"></span>
+              </div>
+
+              <!-- Sebelum -->
+              <div class="col-span-1 text-right">
+                <span class="text-xs font-mono text-ink" x-text="row.quantity_before"></span>
+              </div>
+
+              <!-- Sesudah -->
+              <div class="col-span-1 text-right">
+                <span class="text-xs font-mono text-ink" x-text="row.quantity_after"></span>
+              </div>
+
+              <!-- Selisih -->
+              <div class="col-span-1 text-right">
+                <span class="text-xs font-semibold inline-flex items-center gap-0.5 justify-end"
+                  :class="row.diff > 0 ? 'text-sage-deep' : row.diff < 0 ? 'text-red-500' : 'text-stone'">
+                  <span x-text="row.diff > 0 ? '↑' : row.diff < 0 ? '↓' : '='"></span>
+                  <span x-text="(row.diff > 0 ? '+' : '') + row.diff"></span>
+                </span>
+              </div>
+
+              <!-- Kategori -->
+              <div class="col-span-1">
+                <span class="inline-block text-[10px] font-medium bg-sage/10 text-sage-deep px-1.5 py-0.5 rounded-full leading-snug"
+                  x-text="row.reason_category || '—'"></span>
+              </div>
+
+              <!-- Alasan Lengkap (truncate + tooltip) -->
+              <div class="col-span-1">
+                <template x-if="row.reason_detail && row.reason_detail.length > 50">
+                  <span class="text-xs text-stone cursor-help relative group/tip"
+                    :title="row.reason_detail"
+                    x-text="row.reason_detail.substring(0, 50) + '…'">
+                  </span>
+                </template>
+                <template x-if="!row.reason_detail || row.reason_detail.length <= 50">
+                  <span class="text-xs text-stone" x-text="row.reason_detail || row.reason_raw || '—'"></span>
+                </template>
+              </div>
+
+              <!-- Staff -->
+              <div class="col-span-1">
+                <span class="text-xs text-stone" x-text="row.staff_name || '—'"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Footer + Pagination -->
+        <div class="bg-sand px-5 py-3 border-t border-border flex items-center justify-between gap-4">
+          <p class="text-xs text-stone">
+            <span class="font-semibold text-ink" x-text="filtered.length"></span> koreksi
+            (hal. <span x-text="currentPage"></span> / <span x-text="totalPages"></span>)
+          </p>
+          <div class="flex items-center gap-1.5">
+            <button @click="currentPage = Math.max(1, currentPage - 1)" :disabled="currentPage === 1"
+              class="w-8 h-8 rounded-lg border border-border bg-white hover:bg-cream text-stone disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <template x-for="p in totalPages" :key="p">
+              <button @click="currentPage = p"
+                :class="p === currentPage ? 'bg-sage text-white border-sage' : 'bg-white text-stone border-border hover:bg-cream'"
+                class="w-8 h-8 rounded-lg border text-xs font-medium transition-colors"
+                x-text="p"
+                x-show="p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2">
+              </button>
+            </template>
+            <button @click="currentPage = Math.min(totalPages, currentPage + 1)" :disabled="currentPage === totalPages || totalPages === 0"
+              class="w-8 h-8 rounded-lg border border-border bg-white hover:bg-cream text-stone disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════
+           MOBILE CARDS (below md)
+      ══════════════════════════════════════════════════ -->
+      <div x-show="!loading && paginatedRows.length > 0" class="md:hidden space-y-2.5">
+        <template x-for="row in paginatedRows" :key="row.id">
+          <div class="bg-white border border-border rounded-xl overflow-hidden">
+            <div class="px-4 pt-3.5 pb-3.5">
+              <!-- Header -->
+              <div class="flex items-start justify-between gap-3 mb-3">
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold text-ink leading-snug" x-text="row.product_name"></p>
+                  <span class="text-[10px] font-mono text-stone bg-sand border border-border rounded px-1 py-0.5" x-text="row.sku || '—'"></span>
+                </div>
+                <span class="text-sm font-bold flex-shrink-0"
+                  :class="row.diff > 0 ? 'text-sage-deep' : row.diff < 0 ? 'text-red-500' : 'text-stone'">
+                  <span x-text="row.diff > 0 ? '↑' : row.diff < 0 ? '↓' : '='"></span>
+                  <span x-text="(row.diff > 0 ? '+' : '') + row.diff"></span>
+                </span>
+              </div>
+
+              <!-- Info grid -->
+              <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs mb-3">
+                <div>
+                  <span class="text-stone">Tanggal</span>
+                  <p class="font-medium text-ink" x-text="formatDateShort(row.created_at) + ' ' + formatTime(row.created_at)"></p>
+                </div>
+                <div>
+                  <span class="text-stone">Staff</span>
+                  <p class="font-medium text-ink" x-text="row.staff_name || '—'"></p>
+                </div>
+                <div>
+                  <span class="text-stone">Perubahan</span>
+                  <p class="font-medium text-ink" x-text="row.quantity_before + ' → ' + row.quantity_after"></p>
+                </div>
+                <div>
+                  <span class="text-stone">Kategori</span>
+                  <p class="font-medium text-ink" x-text="row.reason_category || '—'"></p>
+                </div>
+              </div>
+
+              <!-- Alasan -->
+              <div x-show="row.reason_detail" class="text-xs text-stone bg-cream/50 rounded-lg px-3 py-2 border border-border/60">
+                <span class="font-medium text-stone/70">Alasan: </span>
+                <span x-text="row.reason_detail"></span>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Pagination mobile -->
+        <div x-show="totalPages > 1" class="flex items-center justify-center gap-2 pt-2">
+          <button @click="currentPage = Math.max(1, currentPage - 1)" :disabled="currentPage === 1"
+            class="px-4 py-2 rounded-lg border border-border bg-white text-stone text-sm disabled:opacity-40">← Prev</button>
+          <span class="text-xs text-stone" x-text="'Hal. ' + currentPage + ' / ' + totalPages"></span>
+          <button @click="currentPage = Math.min(totalPages, currentPage + 1)" :disabled="currentPage === totalPages"
+            class="px-4 py-2 rounded-lg border border-border bg-white text-stone text-sm disabled:opacity-40">Next →</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script type="module" src="/src/admin/stock-history.js"></script>
+</body>
+</html>

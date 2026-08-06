@@ -222,6 +222,7 @@
                             x-text="formatDate(detail.updated_at)"></td>
                           <td class="py-2.5 pl-4 text-right w-[80px]">
                             <button :id="'btn-koreksi-' + detail.id"
+                              x-show="isAdmin"
                               @click="openCorrection(detail)"
                               class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-sand hover:bg-sage/10 text-stone hover:text-sage-deep text-xs font-medium transition-colors border border-border hover:border-sage/30 opacity-0 group-hover/sub:opacity-100">
                               Koreksi
@@ -324,6 +325,7 @@
                     <div class="flex items-center justify-between gap-3 border-t border-border/40 pt-2 mt-1">
                       <span class="text-[10px] text-stone/60" x-text="formatDate(detail.updated_at)"></span>
                       <button :id="'btn-koreksi-mob-' + detail.id"
+                        x-show="isAdmin"
                         @click="openCorrection(detail)"
                         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sand hover:bg-sage/10 text-stone hover:text-sage-deep text-xs font-medium transition-colors border border-border hover:border-sage/30">
                         Koreksi
@@ -428,6 +430,45 @@
 
     <!-- Form -->
     <div class="px-5 py-5 space-y-4">
+
+      <!-- Kategori Alasan -->
+      <div>
+        <label class="block text-xs font-semibold text-stone uppercase tracking-wider mb-1.5" for="select-koreksi-kategori">
+          Kategori Alasan <span class="text-red-400">*</span>
+        </label>
+        <select id="select-koreksi-kategori" x-model="correctionForm.category"
+          class="w-full px-3 py-2.5 rounded-lg border border-border bg-white text-sm text-ink
+                 focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition">
+          <option value="">— Pilih kategori —</option>
+          <option value="Stock Opname">Stock Opname</option>
+          <option value="Produk Rusak/Cacat">Produk Rusak / Cacat</option>
+          <option value="Produk Hilang">Produk Hilang</option>
+          <option value="Kesalahan Input">Kesalahan Input</option>
+          <option value="Retur dari Customer">Retur dari Customer</option>
+          <option value="Penyesuaian Lainnya">Penyesuaian Lainnya</option>
+        </select>
+      </div>
+
+      <!-- Alasan Koreksi -->
+      <div>
+        <label class="block text-xs font-semibold text-stone uppercase tracking-wider mb-1.5" for="textarea-koreksi-alasan">
+          Alasan Koreksi <span class="text-red-400">*</span>
+          <span class="normal-case font-normal text-stone/60 ml-1">(min. 10 karakter)</span>
+        </label>
+        <textarea
+          id="textarea-koreksi-alasan"
+          rows="3"
+          x-model="correctionForm.reason"
+          placeholder="Jelaskan alasan koreksi stok secara singkat…"
+          class="w-full px-3 py-2.5 rounded-lg border border-border bg-white text-sm text-ink resize-none
+                 focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition"
+          :class="correctionForm.reason.length > 0 && correctionForm.reason.length < 10 ? 'border-red-300 ring-1 ring-red-200' : ''"></textarea>
+        <p class="text-[11px] mt-1"
+          :class="correctionForm.reason.length < 10 ? 'text-stone/50' : 'text-sage-deep'">
+          <span x-text="correctionForm.reason.length"></span> / min. 10 karakter
+        </p>
+      </div>
+
       <!-- Stok aktual -->
       <div>
         <label class="block text-xs font-semibold text-stone uppercase tracking-wider mb-1.5" for="input-stok-aktual">
@@ -442,28 +483,16 @@
           class="w-full px-3 py-2.5 rounded-lg border border-border bg-white text-sm text-ink
                  focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition
                  [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-        <!-- Perubahan stok -->
+        <!-- Preview perubahan stok -->
         <template x-if="correctionForm.quantity !== '' && Number(correctionForm.quantity) !== (correctionRow?.quantity ?? 0)">
           <p class="text-xs mt-1.5 font-medium"
             :class="Number(correctionForm.quantity) > (correctionRow?.quantity ?? 0) ? 'text-sage-deep' : 'text-red-500'">
-            Perubahan:
-            <span x-text="(Number(correctionForm.quantity) > (correctionRow?.quantity ?? 0) ? '+' : '') + (Number(correctionForm.quantity) - (correctionRow?.quantity ?? 0))"></span>
+            Stok akan berubah dari
+            <strong x-text="correctionRow?.quantity ?? 0"></strong> →
+            <strong x-text="correctionForm.quantity"></strong>
+            (<span x-text="(Number(correctionForm.quantity) > (correctionRow?.quantity ?? 0) ? '+' : '') + (Number(correctionForm.quantity) - (correctionRow?.quantity ?? 0))"></span>)
           </p>
         </template>
-      </div>
-
-      <!-- Keterangan -->
-      <div>
-        <label class="block text-xs font-semibold text-stone uppercase tracking-wider mb-1.5" for="input-keterangan-koreksi">
-          Keterangan <span class="text-stone/40">(opsional)</span>
-        </label>
-        <input
-          id="input-keterangan-koreksi"
-          type="text"
-          x-model="correctionForm.reason"
-          placeholder="Contoh: Stock opname Juli 2026"
-          class="w-full px-3 py-2.5 rounded-lg border border-border bg-white text-sm text-ink
-                 focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition" />
       </div>
     </div>
 
@@ -475,7 +504,7 @@
       </button>
       <button id="btn-simpan-koreksi"
         @click="saveCorrection()"
-        :disabled="correcting || correctionForm.quantity === '' || Number(correctionForm.quantity) < 0"
+        :disabled="correcting || correctionForm.quantity === '' || Number(correctionForm.quantity) < 0 || !correctionForm.category || correctionForm.reason.trim().length < 10"
         class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-sage hover:bg-sage-deep
                text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
         <svg x-show="correcting" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">

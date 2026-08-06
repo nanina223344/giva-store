@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stok Nol — Admin Giva Store</title>
+  <meta name="description" content="Daftar semua produk dan varian dengan stok habis (available_quantity = 0)." />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body class="bg-cream text-ink min-h-screen font-sans antialiased" x-data="stockZeroAdmin" x-init="init()">
+
+<div class="flex min-h-screen">
+
+  <div id="admin-sidebar"></div>
+
+  <!-- ── Main ─────────────────────────────────────────────────────────────── -->
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <!-- Top bar -->
+    <header class="bg-cream/80 backdrop-blur border-b border-border px-4 sm:px-8 py-4 flex items-center justify-between sticky top-0 z-20">
+      <div class="flex items-center gap-3 min-w-0">
+        <button id="btn-hamburger" onclick="openSidebar()"
+          class="lg:hidden w-11 h-11 -ml-1 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all flex-shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <div class="min-w-0 flex items-center gap-3">
+          <h1 class="text-lg sm:text-2xl font-display font-semibold text-ink">Stok Nol</h1>
+          <!-- Badge jumlah item -->
+          <span x-show="!loading && totalVariants > 0"
+            class="inline-flex items-center px-2.5 py-1 rounded-full bg-red-500 text-white text-xs font-bold"
+            x-text="totalVariants">
+          </span>
+        </div>
+      </div>
+      <button @click="fetchData()"
+        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-sand hover:bg-border text-ink text-sm font-medium transition-colors border border-border">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        <span class="hidden sm:inline">Refresh</span>
+      </button>
+    </header>
+
+    <!-- Alert -->
+    <div x-show="alert.show"
+      x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2"
+      x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150"
+      x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+      class="mx-4 sm:mx-8 mt-4 rounded-xl px-4 py-3 text-sm font-medium flex items-center gap-2 border"
+      :class="alert.type === 'success' ? 'bg-sage/10 text-sage-deep border-sage/25' : 'bg-red-50 text-red-700 border-red-200'"
+      style="display:none;">
+      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          x-bind:d="alert.type === 'success' ? 'M5 13l4 4L19 7' : 'M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z'"/>
+      </svg>
+      <span x-text="alert.message"></span>
+    </div>
+
+    <!-- ── Content ───────────────────────────────────────────────────────── -->
+    <main class="flex-1 px-4 sm:px-8 py-6 space-y-5">
+
+      <!-- ── Summary Cards ────────────────────────────────────────────────── -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <!-- Total Produk -->
+        <div class="bg-white border border-border rounded-xl px-5 py-4">
+          <p class="text-xs font-semibold uppercase tracking-widest text-stone mb-1">Total Produk Stok Nol</p>
+          <p class="text-2xl font-bold text-ink" x-text="loading ? '—' : totalProducts"></p>
+          <p class="text-xs text-stone mt-1">produk berbeda</p>
+        </div>
+        <!-- Total Varian -->
+        <div class="bg-white border border-border rounded-xl px-5 py-4">
+          <p class="text-xs font-semibold uppercase tracking-widest text-stone mb-1">Total Varian Stok Nol</p>
+          <p class="text-2xl font-bold text-red-500" x-text="loading ? '—' : totalVariants"></p>
+          <p class="text-xs text-stone mt-1">baris stok habis</p>
+        </div>
+        <!-- Total Nilai Reserved -->
+        <div class="bg-white border border-border rounded-xl px-5 py-4">
+          <p class="text-xs font-semibold uppercase tracking-widest text-stone mb-1">Nilai Stok Dipesan (Habis)</p>
+          <p class="text-2xl font-bold text-amber-600" x-text="loading ? '—' : formatRupiah(totalReservedValue)"></p>
+          <p class="text-xs text-stone mt-1">stok reserved × harga beli</p>
+        </div>
+      </div>
+
+      <!-- ── Filters ──────────────────────────────────────────────────────── -->
+      <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
+        <!-- Search -->
+        <div class="relative flex-1 min-w-[200px]">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone/50 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/>
+          </svg>
+          <input id="input-search-zero" type="text" x-model="searchQuery" placeholder="Cari nama produk atau SKU…"
+            class="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-white text-sm text-ink placeholder-stone/50 focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition" />
+        </div>
+        <!-- Filter Kategori -->
+        <select id="select-filter-kategori-zero" x-model="filterCategory"
+          class="px-3 py-2.5 rounded-lg border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition"
+          :class="filterCategory ? 'text-ink border-sage/50 bg-sage/5' : 'text-stone'">
+          <option value="">Semua Kategori</option>
+          <template x-for="cat in categories" :key="cat.id">
+            <option :value="String(cat.id)" x-text="cat.name"></option>
+          </template>
+        </select>
+        <!-- Filter Lokasi -->
+        <select id="select-filter-lokasi-zero" x-model="filterLocation"
+          class="px-3 py-2.5 rounded-lg border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition"
+          :class="filterLocation ? 'text-ink border-sage/50 bg-sage/5' : 'text-stone'">
+          <option value="">Semua Lokasi</option>
+          <template x-for="loc in locations" :key="loc.id">
+            <option :value="String(loc.id)" x-text="loc.name"></option>
+          </template>
+        </select>
+        <!-- Filter Warna -->
+        <select id="select-filter-warna-zero" x-model="filterColor"
+          class="px-3 py-2.5 rounded-lg border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition"
+          :class="filterColor ? 'text-ink border-sage/50 bg-sage/5' : 'text-stone'">
+          <option value="">Semua Warna</option>
+          <template x-for="c in colors" :key="c.id">
+            <option :value="String(c.id)" x-text="c.name"></option>
+          </template>
+        </select>
+      </div>
+
+      <!-- ── Loading ────────────────────────────────────────────────────────── -->
+      <div x-show="loading" class="flex items-center justify-center py-24">
+        <div class="flex flex-col items-center gap-3 text-stone">
+          <svg class="w-6 h-6 animate-spin text-sage" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          <p class="text-sm">Memuat data stok nol…</p>
+        </div>
+      </div>
+
+      <!-- ── Empty state ──────────────────────────────────────────────────── -->
+      <div x-show="!loading && filtered.length === 0" class="flex flex-col items-center justify-center py-24 gap-3 text-stone">
+        <svg class="w-10 h-10 text-stone/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <p class="text-sm font-medium">Tidak ada produk dengan stok nol</p>
+        <p class="text-xs text-stone/60">Semua produk memiliki stok tersedia 🎉</p>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════
+           DESKTOP TABLE (md+)
+      ══════════════════════════════════════════════════ -->
+      <div x-show="!loading && filtered.length > 0"
+        class="hidden md:block rounded-xl border border-border overflow-hidden bg-white">
+
+        <!-- Header -->
+        <div class="bg-sand px-5 py-3 grid grid-cols-12 gap-3 text-[11px] font-semibold uppercase tracking-widest text-stone border-b border-border">
+          <div class="col-span-3">Produk</div>
+          <div class="col-span-1">Kategori</div>
+          <div class="col-span-1">Warna</div>
+          <div class="col-span-1">Lokasi</div>
+          <div class="col-span-1 text-right">Total</div>
+          <div class="col-span-1 text-right">Dipesan</div>
+          <div class="col-span-1 text-right">Tersedia</div>
+          <div class="col-span-2 text-right">Terakhir Ada Stok</div>
+          <div class="col-span-1 text-right">Aksi</div>
+        </div>
+
+        <!-- Rows -->
+        <div class="divide-y divide-border">
+          <template x-for="row in filtered" :key="row.id">
+            <div class="px-5 py-3.5 grid grid-cols-12 gap-3 items-center transition-colors hover:bg-amber-50/60"
+              style="background-color: #FFF8E7;">
+
+              <!-- Produk -->
+              <div class="col-span-3 min-w-0">
+                <p class="text-sm font-medium text-ink truncate" x-text="row.product_name"></p>
+                <span class="text-[10px] font-mono text-stone bg-sand border border-border rounded px-1 py-0.5" x-text="row.sku || '—'"></span>
+              </div>
+
+              <!-- Kategori -->
+              <div class="col-span-1">
+                <span class="text-xs text-stone" x-text="row.category_name || '—'"></span>
+              </div>
+
+              <!-- Warna -->
+              <div class="col-span-1">
+                <template x-if="row.color_name">
+                  <div class="flex items-center gap-1.5">
+                    <div class="w-4 h-4 rounded-full ring-1 ring-black/10 flex-shrink-0"
+                      :style="'background-color: ' + (row.color_hex || '#e5e7eb')"></div>
+                    <span class="text-xs text-ink truncate" x-text="row.color_name"></span>
+                  </div>
+                </template>
+                <template x-if="!row.color_name">
+                  <span class="text-xs text-stone">—</span>
+                </template>
+              </div>
+
+              <!-- Lokasi -->
+              <div class="col-span-1">
+                <span class="text-xs text-stone" x-text="row.location_name || '—'"></span>
+              </div>
+
+              <!-- Total -->
+              <div class="col-span-1 text-right">
+                <span class="text-sm font-semibold text-ink" x-text="row.quantity"></span>
+              </div>
+
+              <!-- Dipesan -->
+              <div class="col-span-1 text-right">
+                <span class="text-sm font-medium"
+                  :class="row.reserved_quantity > 0 ? 'text-amber-600' : 'text-stone/40'"
+                  x-text="row.reserved_quantity"></span>
+              </div>
+
+              <!-- Tersedia = 0 -->
+              <div class="col-span-1 text-right">
+                <span class="inline-flex items-center gap-1 text-sm font-bold text-red-600">
+                  0
+                  <span class="text-[9px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full leading-none">HABIS</span>
+                </span>
+              </div>
+
+              <!-- Terakhir -->
+              <div class="col-span-2 text-right">
+                <span class="text-xs text-stone" x-text="formatDate(row.updated_at)"></span>
+              </div>
+
+              <!-- Aksi -->
+              <div class="col-span-1 text-right flex items-center justify-end gap-1.5">
+                <template x-if="isAdmin">
+                  <button @click="openCorrection(row)"
+                    class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-sage/40 text-sage-deep bg-sage/5 hover:bg-sage/15 text-xs font-medium transition-colors whitespace-nowrap">
+                    Koreksi
+                  </button>
+                </template>
+                <a href="/admin/purchases.html"
+                  class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border bg-sand hover:bg-border text-stone hover:text-ink text-xs font-medium transition-colors whitespace-nowrap">
+                  Beli
+                </a>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-sand px-5 py-3 border-t border-border">
+          <p class="text-xs text-stone">
+            Menampilkan <span class="font-semibold text-ink" x-text="filtered.length"></span>
+            dari <span class="font-semibold text-ink" x-text="rows.length"></span> varian stok nol
+          </p>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════
+           MOBILE CARDS (below md)
+      ══════════════════════════════════════════════════ -->
+      <div x-show="!loading && filtered.length > 0" class="md:hidden space-y-2.5">
+        <template x-for="row in filtered" :key="row.id">
+          <div class="border border-amber-200 rounded-xl overflow-hidden" style="background-color: #FFF8E7;">
+            <div class="px-4 py-3.5">
+              <!-- Header card -->
+              <div class="flex items-start justify-between gap-3 mb-3">
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold text-ink leading-snug" x-text="row.product_name"></p>
+                  <span class="text-[10px] font-mono text-stone bg-white/70 border border-border/50 rounded px-1 py-0.5" x-text="row.sku || '—'"></span>
+                </div>
+                <span class="inline-flex items-center gap-1 text-xs font-bold bg-red-100 text-red-600 px-2.5 py-1 rounded-full flex-shrink-0">
+                  <span>0</span>
+                  <span class="text-[9px]">HABIS</span>
+                </span>
+              </div>
+
+              <!-- Info grid -->
+              <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs mb-3">
+                <div>
+                  <span class="text-stone">Kategori</span>
+                  <p class="font-medium text-ink" x-text="row.category_name || '—'"></p>
+                </div>
+                <div>
+                  <span class="text-stone">Lokasi</span>
+                  <p class="font-medium text-ink" x-text="row.location_name || '—'"></p>
+                </div>
+                <div>
+                  <span class="text-stone">Warna</span>
+                  <div class="flex items-center gap-1.5 mt-0.5" x-show="row.color_name">
+                    <div class="w-3.5 h-3.5 rounded-full ring-1 ring-black/10"
+                      :style="'background-color: ' + (row.color_hex || '#e5e7eb')"></div>
+                    <p class="font-medium text-ink" x-text="row.color_name"></p>
+                  </div>
+                  <p x-show="!row.color_name" class="font-medium text-stone">—</p>
+                </div>
+                <div>
+                  <span class="text-stone">Dipesan</span>
+                  <p class="font-medium" :class="row.reserved_quantity > 0 ? 'text-amber-600' : 'text-stone'"
+                    x-text="row.reserved_quantity"></p>
+                </div>
+              </div>
+
+              <!-- Tanggal + Aksi -->
+              <div class="flex items-center justify-between gap-3 pt-3 border-t border-amber-200/60">
+                <span class="text-[10px] text-stone" x-text="formatDate(row.updated_at)"></span>
+                <div class="flex items-center gap-2">
+                  <template x-if="isAdmin">
+                    <button @click="openCorrection(row)"
+                      class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-sage/40 text-sage-deep bg-sage/5 hover:bg-sage/15 text-xs font-medium transition-colors">
+                      Koreksi Stok
+                    </button>
+                  </template>
+                  <a href="/admin/purchases.html"
+                    class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border bg-white/70 hover:bg-white text-stone text-xs font-medium transition-colors">
+                    Buat Pembelian
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     MODAL KOREKSI STOK
+═══════════════════════════════════════════════════════════════════════ -->
+<div
+  x-show="showModal"
+  x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
+  x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150"
+  x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+  @keydown.escape.window="closeModal()"
+  class="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+  style="display:none;">
+
+  <!-- Backdrop -->
+  <div class="absolute inset-0 bg-ink/20 backdrop-blur-sm" @click="closeModal()"></div>
+
+  <!-- Panel -->
+  <div
+    x-show="showModal"
+    x-transition:enter="transition ease-out duration-250"
+    x-transition:enter-start="opacity-0 translate-y-4 sm:scale-95 sm:translate-y-0"
+    x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+    x-transition:leave-end="opacity-0 translate-y-4 sm:scale-95 sm:translate-y-0"
+    class="relative w-full sm:max-w-md bg-white sm:border border-t sm:border-border sm:rounded-2xl rounded-t-2xl flex flex-col shadow-xl">
+
+    <!-- Drag handle mobile -->
+    <div class="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-border sm:hidden"></div>
+
+    <!-- Header -->
+    <div class="px-5 pt-6 pb-4 border-b border-border flex items-center justify-between flex-shrink-0">
+      <div>
+        <p class="text-[11px] text-stone uppercase tracking-widest font-semibold mb-0.5">Koreksi Stok</p>
+        <h3 class="text-base font-semibold text-ink leading-snug" x-text="modalRow?.product_name ?? ''"></h3>
+      </div>
+      <button @click="closeModal()"
+        class="w-9 h-9 rounded-lg text-stone hover:text-ink hover:bg-sand flex items-center justify-center transition-all flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Info produk readonly -->
+    <div class="px-5 py-3.5 bg-cream/60 border-b border-border flex flex-wrap gap-3 text-xs text-stone">
+      <template x-if="modalRow?.color_name">
+        <div class="flex items-center gap-2">
+          <div class="w-4 h-4 rounded-full ring-1 ring-black/10 flex-shrink-0"
+            :style="'background-color: ' + (modalRow?.color_hex || '#e5e7eb')"></div>
+          <span x-text="modalRow?.color_name"></span>
+        </div>
+      </template>
+      <span class="text-stone/30">·</span>
+      <span class="flex items-center gap-1">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
+        <span x-text="modalRow?.location_name ?? '—'"></span>
+      </span>
+      <span class="text-stone/30">·</span>
+      <span>Stok saat ini: <strong class="text-red-600">0</strong></span>
+    </div>
+
+    <!-- Form -->
+    <div class="px-5 py-5 space-y-4 overflow-y-auto max-h-[60vh]">
+
+      <!-- Kategori Alasan -->
+      <div>
+        <label class="block text-xs font-semibold text-stone uppercase tracking-wider mb-1.5" for="sz-select-kategori">
+          Kategori Alasan <span class="text-red-400">*</span>
+        </label>
+        <select id="sz-select-kategori" x-model="modalForm.category"
+          class="w-full px-3 py-2.5 rounded-lg border border-border bg-white text-sm text-ink
+                 focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition">
+          <option value="">— Pilih kategori —</option>
+          <option value="Stock Opname">Stock Opname</option>
+          <option value="Produk Rusak/Cacat">Produk Rusak / Cacat</option>
+          <option value="Produk Hilang">Produk Hilang</option>
+          <option value="Kesalahan Input">Kesalahan Input</option>
+          <option value="Retur dari Customer">Retur dari Customer</option>
+          <option value="Penyesuaian Lainnya">Penyesuaian Lainnya</option>
+        </select>
+      </div>
+
+      <!-- Alasan Koreksi -->
+      <div>
+        <label class="block text-xs font-semibold text-stone uppercase tracking-wider mb-1.5" for="sz-textarea-alasan">
+          Alasan Koreksi <span class="text-red-400">*</span>
+          <span class="normal-case font-normal text-stone/60 ml-1">(min. 10 karakter)</span>
+        </label>
+        <textarea
+          id="sz-textarea-alasan"
+          rows="3"
+          x-model="modalForm.reason"
+          placeholder="Jelaskan alasan koreksi stok secara singkat…"
+          class="w-full px-3 py-2.5 rounded-lg border border-border bg-white text-sm text-ink resize-none
+                 focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition"
+          :class="modalForm.reason.length > 0 && modalForm.reason.length < 10 ? 'border-red-300 ring-1 ring-red-200' : ''"></textarea>
+        <p class="text-[11px] mt-1" :class="modalForm.reason.length < 10 ? 'text-stone/50' : 'text-sage-deep'">
+          <span x-text="modalForm.reason.length"></span> / min. 10 karakter
+        </p>
+      </div>
+
+      <!-- Stok Aktual -->
+      <div>
+        <label class="block text-xs font-semibold text-stone uppercase tracking-wider mb-1.5" for="sz-input-stok">
+          Stok Aktual <span class="text-red-400">*</span>
+        </label>
+        <input
+          id="sz-input-stok"
+          type="number" min="0"
+          x-model="modalForm.quantity"
+          placeholder="0"
+          class="w-full px-3 py-2.5 rounded-lg border border-border bg-white text-sm text-ink
+                 focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage/60 transition
+                 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+        <!-- Preview -->
+        <template x-if="modalForm.quantity !== '' && Number(modalForm.quantity) >= 0">
+          <p class="text-xs mt-1.5 font-medium"
+            :class="Number(modalForm.quantity) > 0 ? 'text-sage-deep' : 'text-stone/60'">
+            Stok akan berubah dari <strong>0</strong> → <strong x-text="modalForm.quantity"></strong>
+            <template x-if="Number(modalForm.quantity) > 0">
+              <span class="text-sage-deep">(+<span x-text="modalForm.quantity"></span>)</span>
+            </template>
+          </p>
+        </template>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="px-5 pb-5 pt-2 flex gap-2.5 flex-shrink-0">
+      <button @click="closeModal()"
+        class="flex-1 px-4 py-2.5 rounded-lg bg-sand hover:bg-border text-ink text-sm font-medium transition-colors border border-border">
+        Batal
+      </button>
+      <button id="sz-btn-simpan"
+        @click="saveCorrection()"
+        :disabled="saving || modalForm.quantity === '' || Number(modalForm.quantity) < 0 || !modalForm.category || modalForm.reason.trim().length < 10"
+        class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-sage hover:bg-sage-deep
+               text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+        <svg x-show="saving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        <span x-text="saving ? 'Menyimpan…' : 'Simpan Koreksi'"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/src/admin/stock-zero.js"></script>
+</body>
+</html>

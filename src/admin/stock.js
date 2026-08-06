@@ -8,7 +8,7 @@
 import '../style.css'
 import Alpine from 'alpinejs'
 import { supabase }                          from '../supabaseClient.js'
-import { requireAuth, getStaffUser, signOut } from './auth.js'
+import { requireAuth, getStaffUser, getStaffRole, signOut } from './auth.js'
 import { initSidebar } from '../../admin/js/sidebar.js'
 
 
@@ -19,6 +19,8 @@ Alpine.data('stockAdmin', () => ({
   // ── Auth / staff ──────────────────────────────────────────────────────────
   staffUser:   { name: '—', email: '—' },
   staffId:     null,
+  staffRole:   null,
+  isAdmin:     false,
   sidebarOpen: false,
 
   // ── Data ──────────────────────────────────────────────────────────────────
@@ -45,6 +47,7 @@ Alpine.data('stockAdmin', () => ({
   correctionRow:       null,   // baris stok yang dikoreksi
   correctionForm: {
     quantity: '',
+    category: '',
     reason:   '',
   },
 
@@ -104,6 +107,8 @@ Alpine.data('stockAdmin', () => ({
   async init() {
     await requireAuth()
     this.staffUser = await getStaffUser()
+    this.staffRole = await getStaffRole()
+    this.isAdmin   = this.staffRole === 'admin'
     initSidebar(this.staffUser, () => this.logout())
     const me = await supabase.auth.getUser()
     this.staffId = me?.data?.user?.id ?? null
@@ -224,14 +229,14 @@ Alpine.data('stockAdmin', () => ({
 
   openCorrection(row) {
     this.correctionRow  = row
-    this.correctionForm = { quantity: row.quantity, reason: '' }
+    this.correctionForm = { quantity: row.quantity, category: '', reason: '' }
     this.showCorrectionModal = true
   },
 
   closeCorrection() {
     this.showCorrectionModal = false
     this.correctionRow  = null
-    this.correctionForm = { quantity: '', reason: '' }
+    this.correctionForm = { quantity: '', category: '', reason: '' }
   },
 
   async saveCorrection() {
@@ -241,11 +246,20 @@ Alpine.data('stockAdmin', () => ({
       this.showAlert('error', 'Stok aktual tidak boleh kurang dari 0.')
       return
     }
+    if (!this.correctionForm.category) {
+      this.showAlert('error', 'Pilih kategori alasan terlebih dahulu.')
+      return
+    }
+    if (this.correctionForm.reason.trim().length < 10) {
+      this.showAlert('error', 'Alasan koreksi minimal 10 karakter.')
+      return
+    }
 
     this.correcting = true
     try {
-      const row      = this.correctionRow
+      const row       = this.correctionRow
       const qtyBefore = row.quantity
+      const reasonFull = `${this.correctionForm.category}: ${this.correctionForm.reason.trim()}`
 
       // 1. Update stock quantity
       const { error: upErr } = await supabase
@@ -260,18 +274,20 @@ Alpine.data('stockAdmin', () => ({
         .from('stock_adjustments')
         .insert({
           stock_id:        row.id,
+          product_id:      row.product_id,
+          variant_id:      row.variant_id   ?? null,
+          location_id:     row.location_id  ?? null,
           quantity_before: qtyBefore,
           quantity_after:  qty,
-          reason:          this.correctionForm.reason.trim() || null,
+          reason:          reasonFull,
           adjusted_by:     this.staffId,
         })
 
-      // Kalau tabel belum ada, abaikan error (jangan block workflow)
       if (logErr && !logErr.message?.includes('does not exist')) {
         console.warn('stock_adjustments log error:', logErr.message)
       }
 
-      this.showAlert('success', `Stok varian berhasil dikoreksi: ${qtyBefore} → ${qty}.`)
+      this.showAlert('success', `Stok berhasil dikoreksi: ${qtyBefore} → ${qty}.`)
       this.closeCorrection()
       await this.refetchProductStock(row.product_id)
 

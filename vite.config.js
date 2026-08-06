@@ -17,6 +17,8 @@ export default defineConfig({
         adminPurchases: resolve(__dirname, 'admin/purchases.html'),
         adminColors:    resolve(__dirname, 'admin/colors.html'),
         adminStock:     resolve(__dirname, 'admin/stock.html'),
+        adminStockZero: resolve(__dirname, 'admin/stock-zero.html'),
+        adminStockHistory: resolve(__dirname, 'admin/stock-history.html'),
         adminSettings:  resolve(__dirname, 'admin/settings.html'),
         adminCollections: resolve(__dirname, 'admin/collections.html'),
         adminCollectionProducts: resolve(__dirname, 'admin/collection-products.html'),
