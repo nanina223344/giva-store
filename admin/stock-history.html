@@ -155,102 +155,118 @@
            DESKTOP TABLE (md+)
       ══════════════════════════════════════════════════ -->
       <div x-show="!loading && paginatedRows.length > 0"
-        class="hidden md:block rounded-xl border border-border overflow-hidden bg-white">
+        class="hidden md:block rounded-xl border border-border bg-white overflow-hidden">
 
-        <!-- Header -->
-        <div class="bg-sand px-5 py-3 grid grid-cols-12 gap-2 text-[11px] font-semibold uppercase tracking-widest text-stone border-b border-border">
-          <div class="col-span-2">Tanggal &amp; Jam</div>
-          <div class="col-span-2">Produk</div>
-          <div class="col-span-1">Warna</div>
-          <div class="col-span-1">Lokasi</div>
-          <div class="col-span-1 text-right">Sebelum</div>
-          <div class="col-span-1 text-right">Sesudah</div>
-          <div class="col-span-1 text-right">Selisih</div>
-          <div class="col-span-1">Kategori</div>
-          <div class="col-span-1">Alasan</div>
-          <div class="col-span-1">Staff</div>
-        </div>
+        <!-- Scroll wrapper -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse" style="min-width: 1000px;">
+            <colgroup>
+              <col style="width: 140px;"><!-- Tanggal & Jam -->
+              <col style="width: 180px;"><!-- Produk -->
+              <col style="width: 110px;"><!-- Warna -->
+              <col style="width: 110px;"><!-- Lokasi -->
+              <col style="width: 68px;"> <!-- Sebelum -->
+              <col style="width: 68px;"> <!-- Sesudah -->
+              <col style="width: 72px;"> <!-- Selisih -->
+              <col style="width: 120px;"><!-- Kategori -->
+              <col style="width: 170px;"><!-- Alasan -->
+              <col style="width: 100px;"><!-- Staff -->
+            </colgroup>
+            <thead>
+              <tr class="bg-sand border-b border-border text-[11px] font-semibold uppercase tracking-widest text-stone">
+                <th class="px-5 py-3 text-left whitespace-nowrap">Tanggal &amp; Jam</th>
+                <th class="px-3 py-3 text-left">Produk</th>
+                <th class="px-3 py-3 text-left">Warna</th>
+                <th class="px-3 py-3 text-left">Lokasi</th>
+                <th class="px-3 py-3 text-center">Sebelum</th>
+                <th class="px-3 py-3 text-center">Sesudah</th>
+                <th class="px-3 py-3 text-center">Selisih</th>
+                <th class="px-3 py-3 text-left">Kategori</th>
+                <th class="px-3 py-3 text-left">Alasan</th>
+                <th class="px-5 py-3 text-left">Staff</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              <template x-for="row in paginatedRows" :key="row.id">
+                <tr class="hover:bg-cream/40 transition-colors">
 
-        <!-- Rows -->
-        <div class="divide-y divide-border">
-          <template x-for="row in paginatedRows" :key="row.id">
-            <div class="px-5 py-3 grid grid-cols-12 gap-2 items-start hover:bg-cream/40 transition-colors">
+                  <!-- Tanggal & Jam -->
+                  <td class="px-5 py-3 align-middle">
+                    <p class="text-xs font-medium text-ink whitespace-nowrap" x-text="formatDateShort(row.created_at)"></p>
+                    <p class="text-[10px] text-stone" x-text="formatTime(row.created_at)"></p>
+                  </td>
 
-              <!-- Tanggal -->
-              <div class="col-span-2">
-                <p class="text-xs font-medium text-ink" x-text="formatDateShort(row.created_at)"></p>
-                <p class="text-[10px] text-stone" x-text="formatTime(row.created_at)"></p>
-              </div>
+                  <!-- Produk -->
+                  <td class="px-3 py-3 align-middle">
+                    <p class="text-xs font-medium text-ink line-clamp-2 leading-snug" x-text="row.product_name"></p>
+                    <span class="text-[10px] font-mono text-stone bg-sand border border-border rounded px-1 mt-0.5 inline-block" x-text="row.sku || '—'"></span>
+                  </td>
 
-              <!-- Produk -->
-              <div class="col-span-2 min-w-0">
-                <p class="text-xs font-medium text-ink truncate" x-text="row.product_name"></p>
-                <span class="text-[10px] font-mono text-stone bg-sand border border-border rounded px-1" x-text="row.sku || '—'"></span>
-              </div>
+                  <!-- Warna -->
+                  <td class="px-3 py-3 align-middle">
+                    <template x-if="row.color_name">
+                      <div class="flex items-center gap-1.5">
+                        <div class="w-3.5 h-3.5 rounded-full ring-1 ring-black/10 flex-shrink-0"
+                          :style="'background-color: ' + (row.color_hex || '#e5e7eb')"></div>
+                        <span class="text-xs text-ink truncate" x-text="row.color_name"></span>
+                      </div>
+                    </template>
+                    <template x-if="!row.color_name">
+                      <span class="text-xs text-stone">—</span>
+                    </template>
+                  </td>
 
-              <!-- Warna -->
-              <div class="col-span-1">
-                <template x-if="row.color_name">
-                  <div class="flex items-center gap-1.5">
-                    <div class="w-3.5 h-3.5 rounded-full ring-1 ring-black/10 flex-shrink-0"
-                      :style="'background-color: ' + (row.color_hex || '#e5e7eb')"></div>
-                    <span class="text-xs text-ink" x-text="row.color_name"></span>
-                  </div>
-                </template>
-                <template x-if="!row.color_name">
-                  <span class="text-xs text-stone">—</span>
-                </template>
-              </div>
+                  <!-- Lokasi -->
+                  <td class="px-3 py-3 align-middle">
+                    <span class="text-xs text-stone" x-text="row.location_name || '—'"></span>
+                  </td>
 
-              <!-- Lokasi -->
-              <div class="col-span-1">
-                <span class="text-xs text-stone" x-text="row.location_name || '—'"></span>
-              </div>
+                  <!-- Sebelum -->
+                  <td class="px-3 py-3 text-center align-middle">
+                    <span class="text-xs font-mono text-ink" x-text="row.quantity_before"></span>
+                  </td>
 
-              <!-- Sebelum -->
-              <div class="col-span-1 text-right">
-                <span class="text-xs font-mono text-ink" x-text="row.quantity_before"></span>
-              </div>
+                  <!-- Sesudah -->
+                  <td class="px-3 py-3 text-center align-middle">
+                    <span class="text-xs font-mono text-ink" x-text="row.quantity_after"></span>
+                  </td>
 
-              <!-- Sesudah -->
-              <div class="col-span-1 text-right">
-                <span class="text-xs font-mono text-ink" x-text="row.quantity_after"></span>
-              </div>
+                  <!-- Selisih -->
+                  <td class="px-3 py-3 text-center align-middle">
+                    <span class="text-xs font-semibold inline-flex items-center gap-0.5 justify-center whitespace-nowrap"
+                      :class="row.diff > 0 ? 'text-sage-deep' : row.diff < 0 ? 'text-red-500' : 'text-stone'">
+                      <span x-text="row.diff > 0 ? '↑' : row.diff < 0 ? '↓' : '='"></span>
+                      <span x-text="(row.diff > 0 ? '+' : '') + row.diff"></span>
+                    </span>
+                  </td>
 
-              <!-- Selisih -->
-              <div class="col-span-1 text-right">
-                <span class="text-xs font-semibold inline-flex items-center gap-0.5 justify-end"
-                  :class="row.diff > 0 ? 'text-sage-deep' : row.diff < 0 ? 'text-red-500' : 'text-stone'">
-                  <span x-text="row.diff > 0 ? '↑' : row.diff < 0 ? '↓' : '='"></span>
-                  <span x-text="(row.diff > 0 ? '+' : '') + row.diff"></span>
-                </span>
-              </div>
+                  <!-- Kategori -->
+                  <td class="px-3 py-3 align-middle">
+                    <span class="inline-block text-[10px] font-medium bg-sage/10 text-sage-deep px-1.5 py-0.5 rounded-full leading-snug whitespace-nowrap"
+                      x-text="row.reason_category || '—'"></span>
+                  </td>
 
-              <!-- Kategori -->
-              <div class="col-span-1">
-                <span class="inline-block text-[10px] font-medium bg-sage/10 text-sage-deep px-1.5 py-0.5 rounded-full leading-snug"
-                  x-text="row.reason_category || '—'"></span>
-              </div>
+                  <!-- Alasan Lengkap (truncate + tooltip) -->
+                  <td class="px-3 py-3 align-middle max-w-[170px]">
+                    <template x-if="row.reason_detail && row.reason_detail.length > 50">
+                      <span class="text-xs text-stone cursor-help"
+                        :title="row.reason_detail"
+                        x-text="row.reason_detail.substring(0, 50) + '…'">
+                      </span>
+                    </template>
+                    <template x-if="!row.reason_detail || row.reason_detail.length <= 50">
+                      <span class="text-xs text-stone" x-text="row.reason_detail || row.reason_raw || '—'"></span>
+                    </template>
+                  </td>
 
-              <!-- Alasan Lengkap (truncate + tooltip) -->
-              <div class="col-span-1">
-                <template x-if="row.reason_detail && row.reason_detail.length > 50">
-                  <span class="text-xs text-stone cursor-help relative group/tip"
-                    :title="row.reason_detail"
-                    x-text="row.reason_detail.substring(0, 50) + '…'">
-                  </span>
-                </template>
-                <template x-if="!row.reason_detail || row.reason_detail.length <= 50">
-                  <span class="text-xs text-stone" x-text="row.reason_detail || row.reason_raw || '—'"></span>
-                </template>
-              </div>
-
-              <!-- Staff -->
-              <div class="col-span-1">
-                <span class="text-xs text-stone" x-text="row.staff_name || '—'"></span>
-              </div>
-            </div>
-          </template>
+                  <!-- Staff -->
+                  <td class="px-5 py-3 align-middle">
+                    <span class="text-xs text-stone" x-text="row.staff_name || '—'"></span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
         </div>
 
         <!-- Footer + Pagination -->

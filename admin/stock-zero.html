@@ -145,97 +145,113 @@
            DESKTOP TABLE (md+)
       ══════════════════════════════════════════════════ -->
       <div x-show="!loading && filtered.length > 0"
-        class="hidden md:block rounded-xl border border-border overflow-hidden bg-white">
+        class="hidden md:block rounded-xl border border-border bg-white overflow-hidden">
 
-        <!-- Header -->
-        <div class="bg-sand px-5 py-3 grid grid-cols-12 gap-3 text-[11px] font-semibold uppercase tracking-widest text-stone border-b border-border">
-          <div class="col-span-3">Produk</div>
-          <div class="col-span-1">Kategori</div>
-          <div class="col-span-1">Warna</div>
-          <div class="col-span-1">Lokasi</div>
-          <div class="col-span-1 text-right">Total</div>
-          <div class="col-span-1 text-right">Dipesan</div>
-          <div class="col-span-1 text-right">Tersedia</div>
-          <div class="col-span-2 text-right">Terakhir Ada Stok</div>
-          <div class="col-span-1 text-right">Aksi</div>
-        </div>
+        <!-- Scroll wrapper -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse" style="min-width: 960px;">
+            <colgroup>
+              <col style="width: 220px;"><!-- Produk -->
+              <col style="width: 110px;"><!-- Kategori -->
+              <col style="width: 110px;"><!-- Warna -->
+              <col style="width: 120px;"><!-- Lokasi -->
+              <col style="width: 64px;"> <!-- Total -->
+              <col style="width: 72px;"> <!-- Dipesan -->
+              <col style="width: 96px;"> <!-- Tersedia -->
+              <col style="width: 160px;"><!-- Terakhir Ada Stok -->
+              <col style="width: 168px;"><!-- Aksi -->
+            </colgroup>
+            <thead>
+              <tr class="bg-sand border-b border-border text-[11px] font-semibold uppercase tracking-widest text-stone">
+                <th class="px-5 py-3 text-left">Produk</th>
+                <th class="px-3 py-3 text-left">Kategori</th>
+                <th class="px-3 py-3 text-left">Warna</th>
+                <th class="px-3 py-3 text-left">Lokasi</th>
+                <th class="px-3 py-3 text-center">Total</th>
+                <th class="px-3 py-3 text-center">Dipesan</th>
+                <th class="px-3 py-3 text-center">Tersedia</th>
+                <th class="px-3 py-3 text-right whitespace-nowrap">Terakhir Ada Stok</th>
+                <th class="px-5 py-3 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              <template x-for="row in filtered" :key="row.id">
+                <tr class="transition-colors hover:brightness-95" style="background-color: #FFF8E7;">
 
-        <!-- Rows -->
-        <div class="divide-y divide-border">
-          <template x-for="row in filtered" :key="row.id">
-            <div class="px-5 py-3.5 grid grid-cols-12 gap-3 items-center transition-colors hover:bg-amber-50/60"
-              style="background-color: #FFF8E7;">
+                  <!-- Produk -->
+                  <td class="px-5 py-3.5 align-middle">
+                    <p class="text-sm font-medium text-ink line-clamp-2 leading-snug" x-text="row.product_name"></p>
+                    <span class="text-[10px] font-mono text-stone bg-sand border border-border rounded px-1 py-0.5 mt-0.5 inline-block" x-text="row.sku || '—'"></span>
+                  </td>
 
-              <!-- Produk -->
-              <div class="col-span-3 min-w-0">
-                <p class="text-sm font-medium text-ink truncate" x-text="row.product_name"></p>
-                <span class="text-[10px] font-mono text-stone bg-sand border border-border rounded px-1 py-0.5" x-text="row.sku || '—'"></span>
-              </div>
+                  <!-- Kategori -->
+                  <td class="px-3 py-3.5 align-middle">
+                    <span class="text-xs text-stone" x-text="row.category_name || '—'"></span>
+                  </td>
 
-              <!-- Kategori -->
-              <div class="col-span-1">
-                <span class="text-xs text-stone" x-text="row.category_name || '—'"></span>
-              </div>
+                  <!-- Warna -->
+                  <td class="px-3 py-3.5 align-middle">
+                    <template x-if="row.color_name">
+                      <div class="flex items-center gap-1.5">
+                        <div class="w-4 h-4 rounded-full ring-1 ring-black/10 flex-shrink-0"
+                          :style="'background-color: ' + (row.color_hex || '#e5e7eb')"></div>
+                        <span class="text-xs text-ink truncate" x-text="row.color_name"></span>
+                      </div>
+                    </template>
+                    <template x-if="!row.color_name">
+                      <span class="text-xs text-stone">—</span>
+                    </template>
+                  </td>
 
-              <!-- Warna -->
-              <div class="col-span-1">
-                <template x-if="row.color_name">
-                  <div class="flex items-center gap-1.5">
-                    <div class="w-4 h-4 rounded-full ring-1 ring-black/10 flex-shrink-0"
-                      :style="'background-color: ' + (row.color_hex || '#e5e7eb')"></div>
-                    <span class="text-xs text-ink truncate" x-text="row.color_name"></span>
-                  </div>
-                </template>
-                <template x-if="!row.color_name">
-                  <span class="text-xs text-stone">—</span>
-                </template>
-              </div>
+                  <!-- Lokasi -->
+                  <td class="px-3 py-3.5 align-middle">
+                    <span class="text-xs text-stone" x-text="row.location_name || '—'"></span>
+                  </td>
 
-              <!-- Lokasi -->
-              <div class="col-span-1">
-                <span class="text-xs text-stone" x-text="row.location_name || '—'"></span>
-              </div>
+                  <!-- Total -->
+                  <td class="px-3 py-3.5 text-center align-middle">
+                    <span class="text-sm font-semibold text-ink" x-text="row.quantity"></span>
+                  </td>
 
-              <!-- Total -->
-              <div class="col-span-1 text-right">
-                <span class="text-sm font-semibold text-ink" x-text="row.quantity"></span>
-              </div>
+                  <!-- Dipesan -->
+                  <td class="px-3 py-3.5 text-center align-middle">
+                    <span class="text-sm font-medium"
+                      :class="row.reserved_quantity > 0 ? 'text-amber-600' : 'text-stone/40'"
+                      x-text="row.reserved_quantity"></span>
+                  </td>
 
-              <!-- Dipesan -->
-              <div class="col-span-1 text-right">
-                <span class="text-sm font-medium"
-                  :class="row.reserved_quantity > 0 ? 'text-amber-600' : 'text-stone/40'"
-                  x-text="row.reserved_quantity"></span>
-              </div>
+                  <!-- Tersedia = 0 -->
+                  <td class="px-3 py-3.5 text-center align-middle">
+                    <span class="inline-flex items-center justify-center gap-1 text-sm font-bold text-red-600 whitespace-nowrap">
+                      0
+                      <span class="text-[9px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full leading-none">HABIS</span>
+                    </span>
+                  </td>
 
-              <!-- Tersedia = 0 -->
-              <div class="col-span-1 text-right">
-                <span class="inline-flex items-center gap-1 text-sm font-bold text-red-600">
-                  0
-                  <span class="text-[9px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full leading-none">HABIS</span>
-                </span>
-              </div>
+                  <!-- Terakhir Ada Stok -->
+                  <td class="px-3 py-3.5 text-right align-middle">
+                    <span class="text-xs text-stone whitespace-nowrap" x-text="formatDate(row.updated_at)"></span>
+                  </td>
 
-              <!-- Terakhir -->
-              <div class="col-span-2 text-right">
-                <span class="text-xs text-stone" x-text="formatDate(row.updated_at)"></span>
-              </div>
-
-              <!-- Aksi -->
-              <div class="col-span-1 text-right flex items-center justify-end gap-1.5">
-                <template x-if="isAdmin">
-                  <button @click="openCorrection(row)"
-                    class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-sage/40 text-sage-deep bg-sage/5 hover:bg-sage/15 text-xs font-medium transition-colors whitespace-nowrap">
-                    Koreksi
-                  </button>
-                </template>
-                <a href="/admin/purchases.html"
-                  class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border bg-sand hover:bg-border text-stone hover:text-ink text-xs font-medium transition-colors whitespace-nowrap">
-                  Beli
-                </a>
-              </div>
-            </div>
-          </template>
+                  <!-- Aksi -->
+                  <td class="px-5 py-3.5 align-middle">
+                    <div class="flex items-center justify-end gap-2 flex-wrap">
+                      <template x-if="isAdmin">
+                        <button @click="openCorrection(row)"
+                          class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-sage/40 text-sage-deep bg-sage/5 hover:bg-sage/15 text-xs font-medium transition-colors whitespace-nowrap">
+                          Koreksi
+                        </button>
+                      </template>
+                      <a href="/admin/purchases.html"
+                        class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border bg-sand hover:bg-border text-stone hover:text-ink text-xs font-medium transition-colors whitespace-nowrap">
+                        Beli
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
         </div>
 
         <!-- Footer -->
@@ -293,17 +309,17 @@
               </div>
 
               <!-- Tanggal + Aksi -->
-              <div class="flex items-center justify-between gap-3 pt-3 border-t border-amber-200/60">
+              <div class="pt-3 border-t border-amber-200/60 space-y-2">
                 <span class="text-[10px] text-stone" x-text="formatDate(row.updated_at)"></span>
-                <div class="flex items-center gap-2">
+                <div class="flex flex-col gap-2">
                   <template x-if="isAdmin">
                     <button @click="openCorrection(row)"
-                      class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-sage/40 text-sage-deep bg-sage/5 hover:bg-sage/15 text-xs font-medium transition-colors">
+                      class="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-sage/40 text-sage-deep bg-sage/5 hover:bg-sage/15 text-xs font-semibold transition-colors min-h-[44px]">
                       Koreksi Stok
                     </button>
                   </template>
                   <a href="/admin/purchases.html"
-                    class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border bg-white/70 hover:bg-white text-stone text-xs font-medium transition-colors">
+                    class="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-border bg-white/70 hover:bg-white text-stone text-xs font-medium transition-colors min-h-[44px]">
                     Buat Pembelian
                   </a>
                 </div>
